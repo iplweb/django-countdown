@@ -36,14 +36,6 @@ while leaving operators unblocked so they can actually finish the work.
 
 ## Supported versions
 
-### Python
-
-| Python | 3.10 | 3.11 | 3.12 | 3.13 | 3.14 |
-|--------|------|------|------|------|------|
-|        | ✓    | ✓    | ✓    | ✓    | ✓    |
-
-### Django
-
 Authoritative upstream: <https://docs.djangoproject.com/en/dev/faq/install/#what-python-version-can-i-use-with-django>
 
 | Django  | 3.10 | 3.11 | 3.12 | 3.13 | 3.14 | Status                                  |
