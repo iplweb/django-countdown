@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Django 5.2 LTS
+          - { python-version: "3.10", django-version: "5.2" }
+          - { python-version: "3.11", django-version: "5.2" }
+          - { python-version: "3.12", django-version: "5.2" }
+          - { python-version: "3.13", django-version: "5.2" }
+          - { python-version: "3.14", django-version: "5.2" }
+          # Django 6.0
+          - { python-version: "3.12", django-version: "6.0" }
+          - { python-version: "3.13", django-version: "6.0" }
+          - { python-version: "3.14", django-version: "6.0" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        env:
+          PY: ${{ matrix.python-version }}
+        run: uv python install "$PY"
+
+      - name: Install dependencies
+        env:
+          DJANGO_VER: ${{ matrix.django-version }}
+        run: |
+          uv sync --all-extras
+          uv pip install "django~=${DJANGO_VER}.0"
+
+      - name: Run tests
+        run: uv run pytest -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Lint with ruff
+        run: uv run ruff check . || true
+
+      - name: Check formatting with ruff
+        run: uv run ruff format --check . || true
+
+  example-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Django check on example project
+        working-directory: example
+        run: |
+          uv run python manage.py check
+          uv run python manage.py migrate --run-syncdb --no-input
