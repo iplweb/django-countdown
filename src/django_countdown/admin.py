@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from .models import SiteCountdown
 
@@ -44,12 +45,12 @@ class SiteCountdownAdmin(admin.ModelAdmin):
     def time_remaining_display(self, obj):
         """Wyświetla pozostały czas w czytelnym formacie z kolorowym wskaźnikiem."""
         if obj.countdown_time is None:
-            return format_html(
+            return mark_safe(
                 '<span class="admin-status--gray admin-status--bold">'
                 "Nie ustawiono</span>"
             )
         elif obj.is_expired():
-            return format_html(
+            return mark_safe(
                 '<span class="admin-status--red admin-status--bold">Wygasło</span>'
             )
         else:

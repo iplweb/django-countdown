@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: django-countdown
+Version: 0.1.0
+Summary: Display a maintenance countdown banner and block access to a Django site when the countdown expires.
+Author-email: Michał Pasternak <michal.dtz@gmail.com>
+License-Expression: MIT
+Keywords: django,countdown,maintenance,downtime,banner,sites
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: django>=5.2
+Provides-Extra: test
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pytest-django>=4.8; extra == "test"
+Requires-Dist: pytest-mock>=3.12; extra == "test"
+Requires-Dist: model_bakery>=1.17; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: ruff; extra == "dev"

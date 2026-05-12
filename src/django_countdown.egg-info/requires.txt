@@ -1,0 +1,11 @@
+django>=5.2
+
+[dev]
+pre-commit
+ruff
+
+[test]
+pytest>=8
+pytest-django>=4.8
+pytest-mock>=3.12
+model_bakery>=1.17
