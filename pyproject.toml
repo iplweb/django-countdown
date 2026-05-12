@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-countdown"
+version = "0.1.0"
+description = "Display a maintenance countdown banner and block access to a Django site when the countdown expires."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "Michał Pasternak", email = "michal.dtz@gmail.com"},
+]
+keywords = ["django", "countdown", "maintenance", "downtime", "banner", "sites"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "django>=5.2",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8",
+    "pytest-django>=4.8",
+    "pytest-mock>=3.12",
+    "model_bakery>=1.17",
+]
+dev = [
+    "pre-commit",
+    "ruff",
+]
+
+[project.urls]
+# Filled in after a GitHub remote is added:
+# Homepage   = "https://github.com/iplweb/django-countdown"
+# Repository = "https://github.com/iplweb/django-countdown"
+# Issues     = "https://github.com/iplweb/django-countdown/issues"
+# Changelog  = "https://github.com/iplweb/django-countdown/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+django_countdown = [
+    "templates/**/*",
+    "static/**/*",
+    "locale/**/*",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["test_*.py", "tests.py"]
+addopts = "-ra"
+testpaths = ["tests"]
