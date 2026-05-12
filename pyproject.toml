@@ -46,11 +46,10 @@ dev = [
 ]
 
 [project.urls]
-# Filled in after a GitHub remote is added:
-# Homepage   = "https://github.com/iplweb/django-countdown"
-# Repository = "https://github.com/iplweb/django-countdown"
-# Issues     = "https://github.com/iplweb/django-countdown/issues"
-# Changelog  = "https://github.com/iplweb/django-countdown/blob/main/CHANGELOG.md"
+Homepage   = "https://github.com/iplweb/django-countdown"
+Repository = "https://github.com/iplweb/django-countdown"
+Issues     = "https://github.com/iplweb/django-countdown/issues"
+Changelog  = "https://github.com/iplweb/django-countdown/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
