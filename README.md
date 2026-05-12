@@ -1,17 +1,76 @@
 # django-countdown
 
+[![Tests](https://github.com/iplweb/django-countdown/actions/workflows/tests.yml/badge.svg)](https://github.com/iplweb/django-countdown/actions/workflows/tests.yml)
+[![Python Version](https://img.shields.io/pypi/pyversions/django-countdown.svg)](https://pypi.org/project/django-countdown/)
+[![PyPI Version](https://img.shields.io/pypi/v/django-countdown.svg)](https://pypi.org/project/django-countdown/)
+[![License](https://img.shields.io/pypi/l/django-countdown.svg)](LICENSE)
+
 Display a maintenance countdown banner across a Django site, then block public
 access (returning HTTP 503) when the countdown expires. Superusers retain
 access during maintenance so they can finish the work and clear the countdown.
 
+## Why?
+
+Planned downtime is the worst kind of downtime to communicate badly. Users
+land on a half-broken page mid-deploy, hit error logs, file support tickets,
+and trust erodes. `django-countdown` lets you announce a maintenance window
+*before* it starts (a countdown banner with a real timer), then *during* the
+window swap public traffic for an explicit "we're in maintenance" page —
+while leaving operators unblocked so they can actually finish the work.
+
+## Features
+
+- **Pre-maintenance banner** — an ultra-visible countdown banner inserted into
+  templates via context processor, with a JS timer that ticks live.
+- **Hard cutoff at expiry** — middleware returns HTTP 503 and renders a
+  branded blocked page once the countdown lapses.
+- **Superuser bypass** — admins keep working through the cutoff so they can
+  fix the underlying issue and clear the countdown.
+- **Maintenance window** — optional `maintenance_until` lets you set a target
+  end-time; a second banner appears for superusers and the blocked page shows
+  a live countdown to recovery.
+- **Per-Site configuration** — uses Django's `sites` framework, so each
+  domain in a multi-tenant setup has its own independent countdown.
+- **Admin integration** — full Django admin support with status colors and a
+  validator preventing past-dated countdowns.
+
+## Supported versions
+
+### Python
+
+| Python | 3.10 | 3.11 | 3.12 | 3.13 | 3.14 |
+|--------|------|------|------|------|------|
+|        | ✓    | ✓    | ✓    | ✓    | ✓    |
+
+### Django
+
+Authoritative upstream: <https://docs.djangoproject.com/en/dev/faq/install/#what-python-version-can-i-use-with-django>
+
+| Django  | 3.10 | 3.11 | 3.12 | 3.13 | 3.14 | Status                                  |
+|---------|------|------|------|------|------|-----------------------------------------|
+| 5.2 LTS | ✓    | ✓    | ✓    | ✓    | ✓    | Active LTS (extended support Apr 2028)  |
+| 6.0     | —    | —    | ✓    | ✓    | ✓    | Mainstream Aug 2026, extended Apr 2027  |
+
+8 cells in total are exercised by the CI matrix on every push.
+
 ## Installation
+
+### Using uv (recommended)
+
+```bash
+uv add django-countdown
+```
+
+### Using pip
 
 ```bash
 pip install django-countdown
 ```
 
-Add to your Django project's `INSTALLED_APPS` (the `django.contrib.sites`
-framework must also be installed):
+### Project configuration
+
+Add to `INSTALLED_APPS` — the `django.contrib.sites` framework must also be
+installed:
 
 ```python
 INSTALLED_APPS = [
@@ -56,13 +115,13 @@ Run migrations:
 ./manage.py migrate
 ```
 
-## Usage
+## Quick start
 
 Create a `SiteCountdown` row (one per `django.contrib.sites.Site`) via the
 Django admin, providing:
 
 - `countdown_time` — when access starts being blocked.
-- `maintenance_until` (optional) — when public access resumes again.
+- `maintenance_until` (optional) — when public access resumes.
 - `message` — short banner headline (max 200 chars).
 - `long_description` (optional) — extended copy shown on the blocked page.
 
@@ -83,13 +142,10 @@ The middleware automatically serves `django_countdown/blocked.html` for
 non-superuser requests once the countdown has expired and maintenance is
 ongoing.
 
-## Requirements
+A working end-to-end example lives under [`example/`](./example/) — start
+there if you want to see the package wired up in a minimal Django project.
 
-- Python ≥ 3.10
-- Django ≥ 5.2
-- `django.contrib.sites` enabled (`SITE_ID` set)
-
-### Optional / template-level requirements
+## Optional / template-level requirements
 
 `countdown_banner.html` uses `{% load compress %}` (from
 [django-compressor](https://django-compressor.readthedocs.io/)) to bundle its
@@ -99,8 +155,8 @@ drop the `{% compress %}` wrapping.
 
 `blocked.html` references Foundation CSS and Foundation-Icons via
 `{% static %}`. If you serve those files from your project's static pipeline
-they will resolve; otherwise the blocked page will degrade visually but still
-render the maintenance message.
+they will resolve; otherwise the blocked page degrades visually but still
+renders the maintenance message and timer.
 
 ## Configuration
 
@@ -119,4 +175,4 @@ uv run pytest
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT — see [LICENSE](LICENSE) for details.
