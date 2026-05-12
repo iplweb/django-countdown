@@ -69,6 +69,10 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 
+[tool.ruff.lint.per-file-ignores]
+# Django auto-generated; do not hand-edit
+"src/django_countdown/migrations/*" = ["E501"]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
 python_files = ["test_*.py", "tests.py"]

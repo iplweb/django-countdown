@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("django_countdown", "0002_alter_sitecountdown_countdown_time"),
     ]

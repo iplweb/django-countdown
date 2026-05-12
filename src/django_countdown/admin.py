@@ -42,6 +42,7 @@ class SiteCountdownAdmin(admin.ModelAdmin):
         ),
     ]
 
+    @admin.display(description="Pozostały czas")
     def time_remaining_display(self, obj):
         """Wyświetla pozostały czas w czytelnym formacie z kolorowym wskaźnikiem."""
         if obj.countdown_time is None:
@@ -58,5 +59,3 @@ class SiteCountdownAdmin(admin.ModelAdmin):
                 '<span class="admin-status--green admin-status--bold">{}</span>',
                 obj.time_remaining(),
             )
-
-    time_remaining_display.short_description = "Pozostały czas"

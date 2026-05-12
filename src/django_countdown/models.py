@@ -70,14 +70,20 @@ class SiteCountdown(models.Model):
         if self.countdown_time and self.countdown_time <= timezone.now():
             raise ValidationError(
                 {
-                    "countdown_time": "Czas odliczania nie może być w przeszłości. Wybierz datę w przyszłości."
+                    "countdown_time": (
+                        "Czas odliczania nie może być w przeszłości. "
+                        "Wybierz datę w przyszłości."
+                    )
                 }
             )
         if self.maintenance_until and self.countdown_time:
             if self.maintenance_until <= self.countdown_time:
                 raise ValidationError(
                     {
-                        "maintenance_until": "Koniec prac konserwacyjnych musi być późniejszy niż czas odliczania."
+                        "maintenance_until": (
+                            "Koniec prac konserwacyjnych musi być późniejszy "
+                            "niż czas odliczania."
+                        )
                     }
                 )
 
@@ -127,7 +133,10 @@ class SiteCountdown(models.Model):
         return int(delta.total_seconds())
 
     def maintenance_duration_minutes(self):
-        """Zwraca zaplanowany czas przerwy technicznej w minutach (różnica między maintenance_until a countdown_time)."""
+        """Zwraca zaplanowany czas przerwy technicznej w minutach.
+
+        Różnica między ``maintenance_until`` a ``countdown_time``.
+        """
         if self.maintenance_until is None or self.countdown_time is None:
             return None
 

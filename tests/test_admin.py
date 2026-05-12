@@ -13,7 +13,9 @@ from django_countdown.models import SiteCountdown
 def admin_client(db):
     User = get_user_model()
     admin = User.objects.create_superuser(
-        "admin", "admin@example.com", "pw"  # noqa: S106
+        "admin",
+        "admin@example.com",
+        "pw",  # noqa: S106
     )
     c = Client()
     c.force_login(admin)
@@ -38,9 +40,7 @@ def test_sitecountdown_admin_change_view(admin_client):
         countdown_time=timezone.now() + timezone.timedelta(hours=1),
         message="Test",
     )
-    url = reverse(
-        "admin:django_countdown_sitecountdown_change", args=[countdown.pk]
-    )
+    url = reverse("admin:django_countdown_sitecountdown_change", args=[countdown.pk])
     response = admin_client.get(url)
     assert response.status_code == 200
 
@@ -55,8 +55,9 @@ def test_sitecountdown_admin_time_remaining_display_no_time(admin_client):
         countdown_time=None,
         message="Test",
     )
-    from django_countdown.admin import SiteCountdownAdmin
     from django.contrib.admin.sites import AdminSite
+
+    from django_countdown.admin import SiteCountdownAdmin
 
     admin_instance = SiteCountdownAdmin(SiteCountdown, AdminSite())
     rendered = admin_instance.time_remaining_display(countdown)
