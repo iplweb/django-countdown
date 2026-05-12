@@ -1,0 +1,89 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>django-countdown — example app</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: #fafafa;
+            color: #222;
+        }
+        main { max-width: 880px; margin: 2rem auto; padding: 1.5rem; background: #fff; border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+        h1 { margin-top: 0; }
+        h2 { margin-top: 2rem; border-bottom: 1px solid #eee; padding-bottom: .25rem; }
+        ul { padding-left: 1.25rem; }
+        code, pre { font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace; }
+        pre { background: #f4f4f4; padding: .75rem; border-radius: .5rem; overflow-x: auto; }
+        .card { border: 1px solid #e6e6e6; border-radius: .5rem; padding: 1rem; margin-bottom: .75rem; background: #fbfbfb; }
+        .card h3 { margin: 0 0 .25rem; }
+        .row { display: flex; gap: .75rem; flex-wrap: wrap; }
+        .row a { text-decoration: none; padding: .4rem .75rem; border: 1px solid #888; border-radius: .25rem; color: inherit; }
+        .row a:hover { background: #eee; }
+        .status { padding: .75rem; border-radius: .5rem; background: #eef; }
+        .status.warn { background: #ffe; border: 1px solid #ec0; }
+        .status.bad { background: #fee; border: 1px solid #e44; }
+    </style>
+</head>
+<body>
+    {# Banner injected automatically by the context processor when a countdown is active #}
+    {% include "django_countdown/countdown_banner.html" %}
+
+    <main>
+        <h1>django-countdown — example</h1>
+        <p>Minimal Django project demonstrating the <code>django-countdown</code> package.</p>
+
+        <h2>Current countdown</h2>
+        {% if countdown %}
+            <div class="status {% if countdown.is_expired %}bad{% else %}warn{% endif %}">
+                <strong>{{ countdown.site.domain }}</strong> — “{{ countdown.message }}”<br>
+                {% if countdown.is_expired %}
+                    {% if countdown.is_indefinite %}
+                        {% trans "Expired" %} · {% trans "Indefinite — remove the countdown to unblock the site." %}
+                    {% else %}
+                        {% trans "Expired" %} · {% trans "Maintenance end" %}: {{ countdown.maintenance_until }}
+                    {% endif %}
+                {% else %}
+                    {% trans "Countdown time" %}: {{ countdown.countdown_time }} ·
+                    {% trans "Time remaining" %}: {{ countdown.time_remaining }}
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="status">No countdown configured yet. Run:
+                <pre>python manage.py start-countdown</pre>
+                or open the <a href="/admin/django_countdown/sitecountdown/add/">admin</a>.
+            </div>
+        {% endif %}
+
+        <h2>Try it</h2>
+        <ul>
+            <li><a href="/admin/">/admin/</a> — superusers can manage countdowns here (never blocked).</li>
+            <li><a href="/healthz/">/healthz/</a> — endpoint that is blocked once the countdown expires.</li>
+        </ul>
+
+        <h2>Preview blocked-page variants</h2>
+        <p>The package ships several CSS-framework-agnostic templates. Pick one with the
+            <code>DJANGO_COUNTDOWN_BLOCKED_TEMPLATE</code> setting, or preview them directly:</p>
+
+        {% for slug, info in preview_variants.items %}
+            <div class="card">
+                <h3>{{ info.1 }}</h3>
+                <p>Template: <code>{{ info.0 }}</code></p>
+                <div class="row">
+                    <a href="{% url 'preview-blocked' slug %}">Preview (timed)</a>
+                    <a href="{% url 'preview-blocked-indefinite' slug %}">Preview (indefinite)</a>
+                </div>
+            </div>
+        {% endfor %}
+
+        <h2>Start a countdown from the CLI</h2>
+        <pre>python manage.py start-countdown                # interactive
+python manage.py start-countdown --banner +5m --service +10m
+python manage.py start-countdown --banner +1m --service indefinite</pre>
+    </main>
+</body>
+</html>

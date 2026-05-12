@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext
+from django.utils.translation import gettext_lazy as _
 
 from .models import SiteCountdown
 
@@ -13,6 +15,7 @@ class SiteCountdownAdmin(admin.ModelAdmin):
         "countdown_time",
         "maintenance_until",
         "is_expired",
+        "is_indefinite",
         "time_remaining_display",
         "created_at",
     ]
@@ -22,19 +25,23 @@ class SiteCountdownAdmin(admin.ModelAdmin):
 
     fieldsets = [
         (
-            "Podstawowe informacje",
+            _("Basic information"),
             {
                 "fields": ["site", "countdown_time", "maintenance_until"],
+                "description": _(
+                    "Leave 'Maintenance end' empty to keep the site blocked "
+                    "indefinitely once the countdown expires."
+                ),
             },
         ),
         (
-            "Komunikaty",
+            _("Messages"),
             {
                 "fields": ["message", "long_description"],
             },
         ),
         (
-            "Metadane",
+            _("Metadata"),
             {
                 "fields": ["created_at", "updated_at", "time_remaining_display"],
                 "classes": ["collapse"],
@@ -42,17 +49,20 @@ class SiteCountdownAdmin(admin.ModelAdmin):
         ),
     ]
 
-    @admin.display(description="Pozostały czas")
+    @admin.display(description=_("Time remaining"))
     def time_remaining_display(self, obj):
-        """Wyświetla pozostały czas w czytelnym formacie z kolorowym wskaźnikiem."""
+        """Render time-remaining as a coloured status badge."""
         if obj.countdown_time is None:
             return mark_safe(
                 '<span class="admin-status--gray admin-status--bold">'
-                "Nie ustawiono</span>"
+                + gettext("Not set")
+                + "</span>"
             )
         elif obj.is_expired():
             return mark_safe(
-                '<span class="admin-status--red admin-status--bold">Wygasło</span>'
+                '<span class="admin-status--red admin-status--bold">'
+                + gettext("Expired")
+                + "</span>"
             )
         else:
             return format_html(

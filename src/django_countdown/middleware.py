@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 from django.shortcuts import render
 from django.utils.deprecation import MiddlewareMixin
@@ -8,15 +9,28 @@ from .models import SiteCountdown
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_BLOCKED_TEMPLATE = "django_countdown/blocked.html"
+
+
+def get_blocked_template():
+    """Return the template name used to render the blocked page.
+
+    Override via ``DJANGO_COUNTDOWN_BLOCKED_TEMPLATE`` in Django settings, e.g.::
+
+        DJANGO_COUNTDOWN_BLOCKED_TEMPLATE = "django_countdown/blocked_bootstrap.html"
+    """
+    return getattr(
+        settings, "DJANGO_COUNTDOWN_BLOCKED_TEMPLATE", DEFAULT_BLOCKED_TEMPLATE
+    )
+
 
 class CountdownBlockingMiddleware(MiddlewareMixin):
-    """
-    Middleware blokujące dostęp do serwisu po wygaśnięciu odliczania.
-    Superużytkownicy (superuser) mają zawsze dostęp, aby mogli usunąć countdown.
+    """Block access to the site once the countdown expires.
+
+    Superusers always have access so they can clear the countdown.
     """
 
     def process_request(self, request):
-        # Pomiń middleware dla ścieżek administracyjnych, statycznych i medialnych
         if (
             request.path.startswith("/admin/")
             or request.path.startswith("/static/")
@@ -24,28 +38,21 @@ class CountdownBlockingMiddleware(MiddlewareMixin):
         ):
             return None
 
-        # Pobierz aktualny site
         try:
             current_site = get_current_site(request)
         except Exception:
-            # Jeśli nie można pobrać site, nie blokuj — ale zaloguj
-            logger.exception("countdown middleware: nie udało się pobrać Site")
+            logger.exception("countdown middleware: failed to resolve Site")
             return None
 
-        # Sprawdź, czy istnieje countdown dla tego site
         try:
             countdown = SiteCountdown.objects.get(site=current_site)
         except SiteCountdown.DoesNotExist:
-            # Brak countdown - normalny dostęp
             return None
 
-        # Sprawdź, czy countdown wygasł
         if countdown.is_expired():
-            # Jeśli prace konserwacyjne się zakończyły, pozwól na dostęp
             if countdown.is_maintenance_finished():
                 return None
 
-            # Jeśli użytkownik jest superuserem, pozwól na dostęp
             if (
                 hasattr(request, "user")
                 and request.user.is_authenticated
@@ -53,16 +60,14 @@ class CountdownBlockingMiddleware(MiddlewareMixin):
             ):
                 return None
 
-            # Zablokuj dostęp dla wszystkich innych użytkowników
             return render(
                 request,
-                "django_countdown/blocked.html",
+                get_blocked_template(),
                 {
                     "countdown": countdown,
                     "site": current_site,
                 },
-                status=503,  # Service Unavailable
+                status=503,
             )
 
-        # Countdown jeszcze nie wygasł - normalny dostęp
         return None

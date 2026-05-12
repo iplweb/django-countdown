@@ -1,32 +1,33 @@
 {% comment %}Shared countdown banner - handles both active_countdown and maintenance_countdown{% endcomment %}
+{% load i18n static %}
 {% if active_countdown or maintenance_countdown %}
-    {% load static compress %}
-    {% compress css %}
-        <link rel="stylesheet" type="text/css" href="{% static "django_countdown/scss/countdown.css" %}"/>
-    {% endcompress %}
+    <link rel="stylesheet" type="text/css" href="{% static 'django_countdown/scss/countdown.css' %}"/>
 
     {% if active_countdown %}
         {# Regular countdown banner - shown to all users before maintenance starts #}
         <div class="countdown-banner hide-on-print">
             <div class="countdown-content">
                 <span class="countdown-icon fi-alert"></span>
-                <div style="flex: 1; text-align: center;">
+                <div class="countdown-text">
                     <div class="countdown-message">{{ active_countdown.message }}</div>
-                    <div style="margin-top: 0.5rem; font-size: 1rem;">
-                        Planowana jest przerwa techniczna. System przestanie działać za:
+                    <div class="countdown-line">
+                        {% trans "Scheduled maintenance is planned. The system will stop responding in:" %}
                         <span class="countdown-timer" id="countdown-timer"
                               data-target-time="{{ active_countdown.countdown_time.isoformat }}">
-                            Odliczanie...
+                            {% trans "Counting down…" %}
                         </span>
                     </div>
-                    <div style="margin-top: 0.3rem; font-size: 0.95rem; font-weight: 600;">
-                        Możesz dalej pracować, ale pamiętaj o regularnym zapisywaniu swoich danych.
+                    <div class="countdown-line countdown-line--strong">
+                        {% trans "You can keep working, but remember to save your data regularly." %}
                         {% if active_countdown.maintenance_until %}
                             <br>
                             <span class="maintenance-duration">
-                                Orientacyjny czas przerwy technicznej:
-                                {{ active_countdown.maintenance_duration_minutes }} minut
-                                (w rzeczywistości może być dłużej, może być krócej).
+                                {% blocktrans with minutes=active_countdown.maintenance_duration_minutes %}Estimated maintenance duration: {{ minutes }} minutes (actual time may vary).{% endblocktrans %}
+                            </span>
+                        {% else %}
+                            <br>
+                            <span class="maintenance-duration">
+                                {% trans "Maintenance duration: indefinite — the site will stay blocked until an administrator unblocks it." %}
                             </span>
                         {% endif %}
                     </div>
@@ -42,25 +43,52 @@
             <div class="countdown-content">
                 <span class="countdown-icon fi-wrench"></span>
                 <span class="countdown-message">
-                    System w konserwacji - {{ maintenance_countdown.message }}
+                    {% blocktrans with msg=maintenance_countdown.message %}System under maintenance — {{ msg }}{% endblocktrans %}
                 </span>
-                <span class="countdown-timer" id="maintenance-timer"
-                      data-target-time="{{ maintenance_countdown.maintenance_until.isoformat }}">
-                    Odliczanie...
-                </span>
+                {% if maintenance_countdown.maintenance_until %}
+                    <span class="countdown-timer" id="maintenance-timer"
+                          data-target-time="{{ maintenance_countdown.maintenance_until.isoformat }}">
+                        {% trans "Counting down…" %}
+                    </span>
+                {% else %}
+                    <span class="countdown-timer countdown-timer--indefinite">
+                        {% trans "Indefinite — remove the countdown to unblock the site." %}
+                    </span>
+                {% endif %}
             </div>
         </div>
     {% endif %}
 
     <script>
         (function() {
-            // Add class to body when banner is present in admin interface
             if (document.getElementById('grp-header')) {
                 document.body.classList.add('has-countdown-banner');
             }
 
+            var labels = {
+                days: "{% trans 'days' %}",
+                hours: "{% trans 'h' %}",
+                minutes: "{% trans 'min' %}",
+                seconds: "{% trans 'sec' %}",
+                maintenanceRunning: "{% trans 'Maintenance running — page will refresh shortly' %}",
+                maintenanceEnded: "{% trans 'Maintenance finished — please refresh' %}",
+                endsIn: "{% trans 'Ends in:' %}"
+            };
+
+            function formatDistance(distance) {
+                var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                var parts = [];
+                if (days > 0) parts.push(days + " " + labels.days);
+                if (hours > 0) parts.push(hours + " " + labels.hours);
+                if (minutes > 0) parts.push(minutes + " " + labels.minutes);
+                if (seconds >= 0) parts.push(seconds + " " + labels.seconds);
+                return parts.join(" ");
+            }
+
             {% if active_countdown %}
-            // Regular countdown timer
             var countdownTime = new Date("{{ active_countdown.countdown_time.isoformat }}").getTime();
             var timerElement = document.getElementById('countdown-timer');
             var regularCountdownInterval = null;
@@ -70,39 +98,22 @@
                 var distance = countdownTime - now;
 
                 if (distance < 0) {
-                    timerElement.innerHTML = "Konserwacja trwa - strona zostanie wkrótce odświeżona";
-
-                    // Zatrzymaj timer
+                    timerElement.textContent = labels.maintenanceRunning;
                     if (regularCountdownInterval) {
                         clearInterval(regularCountdownInterval);
                     }
-
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 3000);
+                    setTimeout(function() { window.location.reload(); }, 3000);
                     return;
                 }
 
-                var days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                var parts = [];
-                if (days > 0) parts.push(days + " dni");
-                if (hours > 0) parts.push(hours + " godz");
-                if (minutes > 0) parts.push(minutes + " min");
-                if (seconds >= 0) parts.push(seconds + " sek");
-
-                timerElement.innerHTML = parts.join(" ");
+                timerElement.textContent = formatDistance(distance);
             }
 
             updateCountdown();
             regularCountdownInterval = setInterval(updateCountdown, 1000);
             {% endif %}
 
-            {% if maintenance_countdown %}
-            // Maintenance countdown timer
+            {% if maintenance_countdown and maintenance_countdown.maintenance_until %}
             var maintenanceUntil = new Date("{{ maintenance_countdown.maintenance_until.isoformat }}").getTime();
             var maintenanceTimerElement = document.getElementById('maintenance-timer');
             var maintenanceCountdownInterval = null;
@@ -112,31 +123,15 @@
                 var distance = maintenanceUntil - now;
 
                 if (distance < 0) {
-                    maintenanceTimerElement.innerHTML = "Konserwacja zakończona - odśwież stronę";
-
-                    // Zatrzymaj timer
+                    maintenanceTimerElement.textContent = labels.maintenanceEnded;
                     if (maintenanceCountdownInterval) {
                         clearInterval(maintenanceCountdownInterval);
                     }
-
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 3000);
+                    setTimeout(function() { window.location.reload(); }, 3000);
                     return;
                 }
 
-                var days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                var parts = [];
-                if (days > 0) parts.push(days + " dni");
-                if (hours > 0) parts.push(hours + " godz");
-                if (minutes > 0) parts.push(minutes + " min");
-                if (seconds >= 0) parts.push(seconds + " sek");
-
-                maintenanceTimerElement.innerHTML = "Koniec za: " + parts.join(" ");
+                maintenanceTimerElement.textContent = labels.endsIn + " " + formatDistance(distance);
             }
 
             updateMaintenanceCountdown();

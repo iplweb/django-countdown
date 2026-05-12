@@ -30,6 +30,9 @@ uv.lock
 *.sqlite3
 *.sqlite3-journal
 
+# run-site dev stack (self-documenting, removed on clean shutdown)
+.run-site-config
+
 # Secrets (never commit)
 .env
 .env.*

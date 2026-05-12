@@ -122,9 +122,9 @@ def test_sitecountdown_time_remaining_calculates_correctly():
 
     result = countdown.time_remaining()
 
-    # Sprawdź czy zawiera "godz" i "min" (bez dokładnej wartości bo czas płynie)
-    assert "godz" in result or "min" in result
-    assert result != "Wygasło"
+    # Should contain hour/minute markers (avoid exact value since time moves)
+    assert "h" in result or "min" in result
+    assert result != "Expired"
 
 
 @pytest.mark.django_db
@@ -133,7 +133,7 @@ def test_sitecountdown_time_remaining_when_expired():
     past_time = timezone.now() - timedelta(hours=1)
     countdown = baker.make(SiteCountdown, countdown_time=past_time)
 
-    assert countdown.time_remaining() == "Wygasło"
+    assert countdown.time_remaining() == "Expired"
 
 
 # ============================================================================

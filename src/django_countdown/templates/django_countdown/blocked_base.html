@@ -1,0 +1,100 @@
+{% load i18n static %}{% spaceless %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" dir="ltr">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>{% blocktrans with name=site.name %}System under maintenance - {{ name }}{% endblocktrans %}</title>
+    {% block blocked_stylesheets %}{% endblock %}
+</head>
+<body class="{% block blocked_body_class %}maintenance-page{% endblock %}">
+{% endspaceless %}
+{% block blocked_body %}
+    <div class="{% block blocked_container_class %}maintenance-container{% endblock %}">
+        <div class="{% block blocked_header_class %}maintenance-header{% endblock %}">
+            {% block blocked_header_icon_left %}<div class="maintenance-icon icon-key"><span class="fi-wrench"></span></div>{% endblock %}
+            <h1 class="{% block blocked_title_class %}maintenance-title{% endblock %}">{% trans "System under maintenance" %}</h1>
+            {% block blocked_header_icon_right %}<div class="maintenance-icon icon-cog"><span class="fi-widget"></span></div>{% endblock %}
+        </div>
+
+        <div class="{% block blocked_message_class %}maintenance-message{% endblock %}">
+            {{ countdown.message }}
+        </div>
+
+        {% if countdown.long_description %}
+            <div class="{% block blocked_description_class %}maintenance-description{% endblock %}">
+                {{ countdown.long_description|linebreaks }}
+            </div>
+        {% endif %}
+
+        {% if countdown.maintenance_until %}
+            <div class="{% block blocked_timer_class %}countdown-timer{% endblock %}" id="countdown-display">
+                <div class="{% block blocked_label_class %}countdown-label{% endblock %}">{% trans "Estimated end of maintenance in:" %}</div>
+                <div id="countdown-value">{% trans "Loading…" %}</div>
+            </div>
+        {% else %}
+            <div class="{% block blocked_timer_class_indef %}countdown-timer countdown-timer--indefinite{% endblock %}">
+                <div class="{% block blocked_label_class_indef %}countdown-label{% endblock %}">{% trans "Maintenance has no scheduled end." %}</div>
+                <div>{% trans "The site will become available once an administrator unblocks it." %}</div>
+            </div>
+        {% endif %}
+
+        <div class="{% block blocked_footer_class %}maintenance-footer{% endblock %}">
+            <p>{% trans "We're sorry for the inconvenience. We're rolling out an important update. Thank you for your patience." %}</p>
+            <p><strong>{{ site.name }}</strong></p>
+        </div>
+    </div>
+{% endblock %}
+
+<script>
+    var labels = {
+        days: "{% trans 'days' %}",
+        hours: "{% trans 'h' %}",
+        minutes: "{% trans 'min' %}",
+        seconds: "{% trans 'sec' %}",
+        maintenanceFinished: "{% trans 'Maintenance finished!' %}"
+    };
+
+    {% if countdown.maintenance_until %}
+    (function () {
+        var maintenanceUntil = new Date("{{ countdown.maintenance_until.isoformat }}").getTime();
+        var countdownElement = document.getElementById('countdown-value');
+        var hasRefreshed = false;
+        var countdownInterval = null;
+
+        function updateCountdown() {
+            var now = new Date().getTime();
+            var distance = maintenanceUntil - now;
+
+            if (distance < 0 && !hasRefreshed) {
+                countdownElement.textContent = labels.maintenanceFinished;
+                hasRefreshed = true;
+                if (countdownInterval) clearInterval(countdownInterval);
+                setTimeout(function () { window.location.reload(); }, 3000);
+                return;
+            }
+
+            var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            var parts = [];
+            if (days > 0) parts.push(days + " " + labels.days);
+            if (hours > 0) parts.push(hours + " " + labels.hours);
+            if (minutes > 0) parts.push(minutes + " " + labels.minutes);
+            if (seconds >= 0) parts.push(seconds + " " + labels.seconds);
+
+            countdownElement.textContent = parts.join(" ");
+        }
+
+        updateCountdown();
+        countdownInterval = setInterval(updateCountdown, 1000);
+    })();
+    {% else %}
+    // Indefinite maintenance — poll every 30 s in case admin unblocks
+    setTimeout(function () { window.location.reload(); }, 30000);
+    {% endif %}
+</script>
+</body>
+</html>

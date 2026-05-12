@@ -1,12 +1,11 @@
 // Countdown Banner Styles
-// ULTRA AGRESYWNY czerwony pulsujący banner - NIEMOŻLIWY DO POMINIĘCIA
 
 .countdown-banner {
   background: rgba(255, 0, 0, 0.85);
   color: white;
   padding: 1rem 2rem;
   text-align: center;
-  position: relative; // Ensure proper positioning
+  position: relative;
   animation: countdown-pulse 1.2s ease-in-out infinite;
 
   @media screen and (max-width: 639px) {
@@ -24,6 +23,22 @@
       flex-direction: column;
       gap: 1rem;
     }
+  }
+
+  .countdown-text {
+    flex: 1;
+    text-align: center;
+  }
+
+  .countdown-line {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+  }
+
+  .countdown-line--strong {
+    margin-top: 0.3rem;
+    font-size: 0.95rem;
+    font-weight: 600;
   }
 
   .countdown-icon {
@@ -76,7 +91,6 @@
   }
 }
 
-// ULTRA AGRESYWNA pulsating animation - NIEMOŻLIWA DO ZIGNOROWANIA
 @keyframes countdown-pulse {
   0%, 100% {
     opacity: 1;
@@ -88,15 +102,13 @@
   }
 }
 
-
-
-// Maintenance Banner Styles (dla superuserów podczas konserwacji)
+// Maintenance Banner Styles (for superusers during maintenance)
 .maintenance-banner {
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   color: white;
   padding: 1rem 2rem;
   text-align: center;
-  position: relative; // Ensure proper positioning
+  position: relative;
   animation: maintenance-pulse 2s ease-in-out infinite;
 
   @media screen and (max-width: 639px) {
@@ -153,9 +165,12 @@
       padding: 0.6rem 1rem;
     }
   }
+
+  .countdown-timer--indefinite {
+    font-style: italic;
+  }
 }
 
-// Maintenance banner pulse animation - subtelniejsza niż countdown
 @keyframes maintenance-pulse {
   0%, 100% {
     opacity: 1;
@@ -167,26 +182,128 @@
   }
 }
 
-// Wrench icon spin animation
 @keyframes maintenance-wrench-spin {
-  0%, 100% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(-20deg);
-  }
-  50% {
-    transform: rotate(0deg);
-  }
-  75% {
-    transform: rotate(20deg);
-  }
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-20deg); }
+  50%      { transform: rotate(0deg); }
+  75%      { transform: rotate(20deg); }
 }
 
-// Print styles - hide countdown banner when printing
 @media print {
   .countdown-banner,
   .maintenance-banner {
     display: none !important;
   }
+}
+
+// Blocked page styles (served as full HTML page when site is blocked)
+body.maintenance-page {
+  background-color: #f8f8f8;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+}
+
+.maintenance-container {
+  text-align: center;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 1rem;
+  border: 1px solid #e6e6e6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  margin: 1rem;
+
+  .maintenance-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .maintenance-icon {
+    font-size: 3rem;
+    color: #ff6b6b;
+
+    &.icon-key {
+      animation: wrench-turn 1.5s ease-in-out infinite;
+      transform-origin: top right;
+    }
+
+    &.icon-cog {
+      animation: rotate-left 3s linear infinite;
+    }
+  }
+
+  .maintenance-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin: 0;
+  }
+
+  .maintenance-message {
+    font-size: 1.1rem;
+    color: #e74c3c;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: #ffe5e5;
+    border-radius: 0.5rem;
+  }
+
+  .maintenance-description {
+    font-size: 1rem;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .countdown-timer {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #667eea;
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #f0f4ff;
+    border-radius: 0.5rem;
+    border: 2px solid #667eea;
+
+    &.countdown-timer--indefinite {
+      color: #d35400;
+      background: #fff5e6;
+      border-color: #d35400;
+      font-size: 1.1rem;
+    }
+  }
+
+  .countdown-label {
+    font-size: 0.9rem;
+    color: #888;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+  }
+
+  .maintenance-footer {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+  }
+}
+
+@keyframes wrench-turn {
+  0%   { transform: rotate(-15deg); }
+  50%  { transform: rotate(15deg); }
+  100% { transform: rotate(-15deg); }
+}
+
+@keyframes rotate-left {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
 }

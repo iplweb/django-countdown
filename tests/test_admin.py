@@ -61,4 +61,4 @@ def test_sitecountdown_admin_time_remaining_display_no_time(admin_client):
 
     admin_instance = SiteCountdownAdmin(SiteCountdown, AdminSite())
     rendered = admin_instance.time_remaining_display(countdown)
-    assert "Nie ustawiono" in rendered
+    assert "Not set" in rendered

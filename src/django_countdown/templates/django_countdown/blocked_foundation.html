@@ -1,0 +1,21 @@
+{% extends "django_countdown/blocked_base.html" %}
+{% load static %}
+
+{% comment %}
+Foundation-flavoured blocked page. Assumes your project already serves
+Foundation Sites CSS + foundation-icons at:
+    {% static 'foundation-sites/dist/css/foundation.min.css' %}
+    {% static 'foundation-datepicker/foundation/fonts/foundation-icons.css' %}
+If those paths don't exist in your static pipeline, override
+{% verbatim %}{% block blocked_stylesheets %}{% endverbatim %} in a project-level
+template named "django_countdown/blocked_foundation.html".
+{% endcomment %}
+
+{% block blocked_stylesheets %}
+    <link rel="stylesheet" type="text/css"
+          href="{% static 'foundation-sites/dist/css/foundation.min.css' %}"/>
+    <link rel="stylesheet" type="text/css"
+          href="{% static 'foundation-datepicker/foundation/fonts/foundation-icons.css' %}"/>
+    <link rel="stylesheet" type="text/css"
+          href="{% static 'django_countdown/scss/countdown.css' %}"/>
+{% endblock %}

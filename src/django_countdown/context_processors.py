@@ -8,20 +8,18 @@ logger = logging.getLogger(__name__)
 
 
 def countdown_context(request):
-    """
-    Context processor dodający aktywne odliczanie do kontekstu szablonów.
-    Zwraca countdown tylko jeśli istnieje i nie wygasł.
-    Dla superuserów zwraca również countdown w trakcie konserwacji.
+    """Inject the active countdown into the template context.
+
+    Returns the countdown only if it exists and has not yet expired.
+    For superusers it also returns the countdown while maintenance is running.
     """
     try:
         current_site = get_current_site(request)
         countdown = SiteCountdown.objects.get(site=current_site)
 
-        # Zwróć countdown tylko jeśli nie wygasł
         if not countdown.is_expired():
             return {"active_countdown": countdown, "maintenance_countdown": None}
 
-        # Jeśli countdown wygasł ale trwa konserwacja i użytkownik to superuser
         if countdown.is_expired() and not countdown.is_maintenance_finished():
             if (
                 hasattr(request, "user")
@@ -32,6 +30,6 @@ def countdown_context(request):
     except SiteCountdown.DoesNotExist:
         pass
     except Exception:
-        logger.exception("countdown_context: nieoczekiwany błąd")
+        logger.exception("countdown_context: unexpected error")
 
     return {"active_countdown": None, "maintenance_countdown": None}
