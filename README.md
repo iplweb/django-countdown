@@ -137,18 +137,29 @@ ongoing.
 A working end-to-end example lives under [`example/`](./example/) — start
 there if you want to see the package wired up in a minimal Django project.
 
-## Optional / template-level requirements
+## Blocked-page variants
 
-`countdown_banner.html` uses `{% load compress %}` (from
-[django-compressor](https://django-compressor.readthedocs.io/)) to bundle its
-CSS. If you include the banner partial in your templates, install
-`django-compressor` and add it to `INSTALLED_APPS`, or fork the template and
-drop the `{% compress %}` wrapping.
+Three blocked-page templates ship with the package; pick one via
+`DJANGO_COUNTDOWN_BLOCKED_TEMPLATE` in your settings:
 
-`blocked.html` references Foundation CSS and Foundation-Icons via
-`{% static %}`. If you serve those files from your project's static pipeline
-they will resolve; otherwise the blocked page degrades visually but still
-renders the maintenance message and timer.
+| Template                                       | Requirements                            |
+|------------------------------------------------|-----------------------------------------|
+| `django_countdown/blocked.html` *(default)*    | None — ships its own CSS                |
+| `django_countdown/blocked_foundation.html`     | Foundation Sites + foundation-icons CSS |
+| `django_countdown/blocked_bootstrap.html`      | Bootstrap 5 (loaded from CDN)           |
+
+```python
+# settings.py
+DJANGO_COUNTDOWN_BLOCKED_TEMPLATE = "django_countdown/blocked_bootstrap.html"
+```
+
+All three inherit from `django_countdown/blocked_base.html`, which exposes a
+`{% block blocked_stylesheets %}` you can override in your own subclass if
+you need a different framework.
+
+`countdown_banner.html` ships its own stylesheet via `{% static %}` and has
+**no external Python dependencies** beyond Django itself (no
+`django-compressor`, no `django-sass-processor`).
 
 ## Configuration
 
