@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-05-13
+
+Example-project polish only — the published `django_countdown` wheel is
+unchanged from 0.2.0. No migration or code change is required for users
+of the package.
+
+### Fixed
+- Example app's discovery page (`example/`) referenced the management
+  command as `start-countdown` (hyphen) in three places. Django commands
+  use the underscored filename (`start_countdown`), so copy-pasting the
+  snippets failed. All three snippets corrected.
+
+### Added
+- Example app is now fully translatable end-to-end. Every user-visible
+  string on the discovery page goes through `{% trans %}` /
+  `{% blocktrans %}`, the preview-variant labels in `views.py` use
+  `gettext_lazy`, and a complete Polish catalog ships at
+  `example/example_project/locale/pl/LC_MESSAGES/django.{po,mo}`. Set
+  `Accept-Language: pl` (or run with `LANGUAGE_CODE = "pl"`) to see it.
+- "Refresh this page after running the command" hints next to both
+  CLI-invocation blocks on the discovery page, so demo users notice the
+  banner appears on the next request.
+
 ## [0.2.0] — 2026-05-12
 
 ### Added

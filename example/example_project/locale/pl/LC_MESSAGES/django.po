@@ -1,0 +1,164 @@
+# Polish translation for the django-countdown example project.
+# Copyright (C) 2026
+# This file is distributed under the same license as the example project.
+# Michał Pasternak <michal.dtz@gmail.com>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: django-countdown-example 0.2.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-13 12:04-0500\n"
+"PO-Revision-Date: 2026-05-13 19:10+0200\n"
+"Last-Translator: Michał Pasternak <michal.dtz@gmail.com>\n"
+"Language-Team: Polish\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && "
+"(n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && "
+"n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
+
+#: example_project/templates/example/index.html:7
+msgid "django-countdown — example app"
+msgstr "django-countdown — aplikacja przykładowa"
+
+#: example_project/templates/example/index.html:37
+msgid "django-countdown — example"
+msgstr "django-countdown — przykład"
+
+#: example_project/templates/example/index.html:38
+msgid ""
+"Minimal Django project demonstrating the <code>django-countdown</code> "
+"package."
+msgstr ""
+"Minimalny projekt Django prezentujący działanie pakietu "
+"<code>django-countdown</code>."
+
+#: example_project/templates/example/index.html:40
+msgid "Current countdown"
+msgstr "Bieżące odliczanie"
+
+#: example_project/templates/example/index.html:46
+#: example_project/templates/example/index.html:48
+msgid "Expired"
+msgstr "Wygasło"
+
+#: example_project/templates/example/index.html:46
+msgid "Indefinite — remove the countdown to unblock the site."
+msgstr "Bezterminowo — usuń odliczanie, aby odblokować serwis."
+
+#: example_project/templates/example/index.html:48
+msgid "Maintenance end"
+msgstr "Koniec konserwacji"
+
+#: example_project/templates/example/index.html:51
+msgid "Countdown time"
+msgstr "Czas odliczania"
+
+#: example_project/templates/example/index.html:52
+msgid "Time remaining"
+msgstr "Pozostały czas"
+
+#: example_project/templates/example/index.html:56
+msgid "No countdown configured yet. Run:"
+msgstr "Nie skonfigurowano jeszcze żadnego odliczania. Uruchom:"
+
+#: example_project/templates/example/index.html:58
+msgid ""
+"or open the <a href=\"/admin/django_countdown/sitecountdown/add/\">admin</a>."
+msgstr ""
+"lub otwórz <a href=\"/admin/django_countdown/sitecountdown/add/\">panel "
+"administracyjny</a>."
+
+#: example_project/templates/example/index.html:59
+msgid "Tip:"
+msgstr "Wskazówka:"
+
+#: example_project/templates/example/index.html:60
+msgid ""
+"after starting a countdown from the CLI, refresh this page to see the banner "
+"appear."
+msgstr ""
+"po uruchomieniu odliczania z wiersza poleceń, odśwież tę stronę, aby "
+"zobaczyć baner."
+
+#: example_project/templates/example/index.html:64
+msgid "Try it"
+msgstr "Wypróbuj"
+
+#: example_project/templates/example/index.html:66
+msgid ""
+"<a href=\"/admin/\">/admin/</a> — superusers can manage countdowns here "
+"(never blocked)."
+msgstr ""
+"<a href=\"/admin/\">/admin/</a> — superużytkownicy zarządzają tu "
+"odliczaniami (nigdy nie są blokowani)."
+
+#: example_project/templates/example/index.html:67
+msgid ""
+"<a href=\"/healthz/\">/healthz/</a> — endpoint that is blocked once the "
+"countdown expires."
+msgstr ""
+"<a href=\"/healthz/\">/healthz/</a> — punkt końcowy blokowany po "
+"zakończeniu odliczania."
+
+#: example_project/templates/example/index.html:70
+msgid "Preview blocked-page variants"
+msgstr "Podgląd wariantów strony blokady"
+
+#: example_project/templates/example/index.html:71
+msgid ""
+"The package ships several CSS-framework-agnostic templates. Pick one with "
+"the\n"
+"            <code>DJANGO_COUNTDOWN_BLOCKED_TEMPLATE</code> setting, or "
+"preview them directly:"
+msgstr ""
+"Pakiet zawiera kilka szablonów niezależnych od frameworka CSS. Wybierz "
+"jeden ustawieniem\n"
+"            <code>DJANGO_COUNTDOWN_BLOCKED_TEMPLATE</code> lub obejrzyj "
+"je bezpośrednio:"
+
+#: example_project/templates/example/index.html:77
+msgid "Template:"
+msgstr "Szablon:"
+
+#: example_project/templates/example/index.html:79
+msgid "Preview (timed)"
+msgstr "Podgląd (z licznikiem)"
+
+#: example_project/templates/example/index.html:80
+msgid "Preview (indefinite)"
+msgstr "Podgląd (bezterminowy)"
+
+#: example_project/templates/example/index.html:85
+msgid "Start a countdown from the CLI"
+msgstr "Uruchom odliczanie z wiersza poleceń"
+
+#: example_project/templates/example/index.html:86
+msgid "interactive"
+msgstr "interaktywnie"
+
+#: example_project/templates/example/index.html:89
+msgid "Note:"
+msgstr "Uwaga:"
+
+#: example_project/templates/example/index.html:90
+msgid ""
+"after running the command, refresh this page in your browser to see the "
+"countdown banner."
+msgstr ""
+"po wykonaniu polecenia odśwież tę stronę w przeglądarce, aby zobaczyć "
+"baner odliczania."
+
+#: example_project/views.py:15
+msgid "Plain (no CSS framework)"
+msgstr "Zwykły (bez frameworka CSS)"
+
+#: example_project/views.py:16
+msgid "Foundation Sites"
+msgstr "Foundation Sites"
+
+#: example_project/views.py:17
+msgid "Bootstrap 5"
+msgstr "Bootstrap 5"

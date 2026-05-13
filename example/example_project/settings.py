@@ -64,6 +64,7 @@ LANGUAGE_CODE = "en"
 USE_I18N = True
 USE_TZ = True
 LANGUAGES = [("en", "English"), ("pl", "Polski")]
+LOCALE_PATHS = [BASE_DIR / "example_project" / "locale"]
 
 STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

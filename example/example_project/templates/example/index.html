@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>django-countdown — example app</title>
+    <title>{% trans "django-countdown — example app" %}</title>
     <style>
         :root { color-scheme: light dark; }
         body {
@@ -34,10 +34,10 @@
     {% include "django_countdown/countdown_banner.html" %}
 
     <main>
-        <h1>django-countdown — example</h1>
-        <p>Minimal Django project demonstrating the <code>django-countdown</code> package.</p>
+        <h1>{% trans "django-countdown — example" %}</h1>
+        <p>{% blocktrans %}Minimal Django project demonstrating the <code>django-countdown</code> package.{% endblocktrans %}</p>
 
-        <h2>Current countdown</h2>
+        <h2>{% trans "Current countdown" %}</h2>
         {% if countdown %}
             <div class="status {% if countdown.is_expired %}bad{% else %}warn{% endif %}">
                 <strong>{{ countdown.site.domain }}</strong> — “{{ countdown.message }}”<br>
@@ -53,37 +53,41 @@
                 {% endif %}
             </div>
         {% else %}
-            <div class="status">No countdown configured yet. Run:
-                <pre>python manage.py start-countdown</pre>
-                or open the <a href="/admin/django_countdown/sitecountdown/add/">admin</a>.
+            <div class="status">{% trans "No countdown configured yet. Run:" %}
+                <pre>python manage.py start_countdown</pre>
+                {% blocktrans %}or open the <a href="/admin/django_countdown/sitecountdown/add/">admin</a>.{% endblocktrans %}
+                <p><strong>{% trans "Tip:" %}</strong>
+                    {% trans "after starting a countdown from the CLI, refresh this page to see the banner appear." %}</p>
             </div>
         {% endif %}
 
-        <h2>Try it</h2>
+        <h2>{% trans "Try it" %}</h2>
         <ul>
-            <li><a href="/admin/">/admin/</a> — superusers can manage countdowns here (never blocked).</li>
-            <li><a href="/healthz/">/healthz/</a> — endpoint that is blocked once the countdown expires.</li>
+            <li>{% blocktrans %}<a href="/admin/">/admin/</a> — superusers can manage countdowns here (never blocked).{% endblocktrans %}</li>
+            <li>{% blocktrans %}<a href="/healthz/">/healthz/</a> — endpoint that is blocked once the countdown expires.{% endblocktrans %}</li>
         </ul>
 
-        <h2>Preview blocked-page variants</h2>
-        <p>The package ships several CSS-framework-agnostic templates. Pick one with the
-            <code>DJANGO_COUNTDOWN_BLOCKED_TEMPLATE</code> setting, or preview them directly:</p>
+        <h2>{% trans "Preview blocked-page variants" %}</h2>
+        <p>{% blocktrans %}The package ships several CSS-framework-agnostic templates. Pick one with the
+            <code>DJANGO_COUNTDOWN_BLOCKED_TEMPLATE</code> setting, or preview them directly:{% endblocktrans %}</p>
 
         {% for slug, info in preview_variants.items %}
             <div class="card">
                 <h3>{{ info.1 }}</h3>
-                <p>Template: <code>{{ info.0 }}</code></p>
+                <p>{% trans "Template:" %} <code>{{ info.0 }}</code></p>
                 <div class="row">
-                    <a href="{% url 'preview-blocked' slug %}">Preview (timed)</a>
-                    <a href="{% url 'preview-blocked-indefinite' slug %}">Preview (indefinite)</a>
+                    <a href="{% url 'preview-blocked' slug %}">{% trans "Preview (timed)" %}</a>
+                    <a href="{% url 'preview-blocked-indefinite' slug %}">{% trans "Preview (indefinite)" %}</a>
                 </div>
             </div>
         {% endfor %}
 
-        <h2>Start a countdown from the CLI</h2>
-        <pre>python manage.py start-countdown                # interactive
-python manage.py start-countdown --banner +5m --service +10m
-python manage.py start-countdown --banner +1m --service indefinite</pre>
+        <h2>{% trans "Start a countdown from the CLI" %}</h2>
+        <pre>python manage.py start_countdown                # {% trans "interactive" %}
+python manage.py start_countdown --banner +5m --service +10m
+python manage.py start_countdown --banner +1m --service indefinite</pre>
+        <p><strong>{% trans "Note:" %}</strong>
+            {% trans "after running the command, refresh this page in your browser to see the countdown banner." %}</p>
     </main>
 </body>
 </html>

@@ -6,14 +6,15 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.http import Http404, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_safe
 
 from django_countdown.models import SiteCountdown
 
 PREVIEW_TEMPLATES = {
-    "plain": ("django_countdown/blocked.html", "Plain (no CSS framework)"),
-    "foundation": ("django_countdown/blocked_foundation.html", "Foundation Sites"),
-    "bootstrap": ("django_countdown/blocked_bootstrap.html", "Bootstrap 5"),
+    "plain": ("django_countdown/blocked.html", _("Plain (no CSS framework)")),
+    "foundation": ("django_countdown/blocked_foundation.html", _("Foundation Sites")),
+    "bootstrap": ("django_countdown/blocked_bootstrap.html", _("Bootstrap 5")),
 }
 
 
