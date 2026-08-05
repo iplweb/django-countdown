@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Trove classifier moved from `Development Status :: 3 - Alpha` to
+  `4 - Beta`. The command set now covers the whole countdown lifecycle, tests
+  run across Python 3.10–3.14 × Django 5.2/6.0, and the documented behaviour is
+  under test — the API is stable enough to depend on. Takes effect on PyPI with
+  the next release; 0.3.0 shipped as Alpha.
+
+### Fixed
+- CI actions bumped off Node 20, which GitHub has deprecated:
+  `actions/checkout@v5`, `upload-artifact@v7`, `download-artifact@v8`,
+  `deploy-pages@v5`, `setup-uv` v9. Note that `upload-artifact@v5` and
+  `download-artifact@v5` are still Node 20 — the jump to v7/v8 is what actually
+  moves them.
+- `setup-uv`'s cache key was never invalidated: it globs for `uv.lock`, which
+  this repository gitignores (a library pins nothing), so the file never reached
+  the runner and nothing ever matched. Keyed on `pyproject.toml` instead.
+
 ## [0.3.0] — 2026-08-05
 
 Until now the package could only ever *create* a countdown. There was no

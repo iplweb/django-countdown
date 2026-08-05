@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["django", "countdown", "maintenance", "downtime", "banner", "sites"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Django",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",

@@ -67,6 +67,27 @@ authenticated non-superusers; the bypass is strictly `is_superuser`.
 | **Recovered** | `maintenance_until ≤ now` | No banner, site works | No banner, site works |
 | **No row** | — | No banner, site works | No banner, site works |
 
+!!! tip "You can ask instead of working it out"
+
+    `show_countdown` reports which of these a site is in, and how long until the
+    next transition — it branches on the same conditions as the middleware, so
+    it cannot drift from the table above. The phase names it prints map like
+    this:
+
+    | Above | `show_countdown` |
+    |---|---|
+    | Announcement | `banner` |
+    | Maintenance | `blocked` |
+    | Indefinite maintenance | `blocked_indefinite` |
+    | Recovered | `finished` |
+    | No row | *(nothing reported for that site)* |
+
+    It also names one state the table omits: `unscheduled`, a row that exists
+    with no `countdown_time` at all. That is reachable from the admin, and it
+    behaves like "no row" to visitors.
+
+    See [Managing a running countdown](managing-a-countdown.md).
+
 Two consequences worth internalising:
 
 - **Staff are not superusers.** A user with `is_staff=True` but
@@ -74,7 +95,8 @@ Two consequences worth internalising:
   `/admin/`, because that prefix is exempt from blocking entirely.
 - **Recovery is passive.** Nothing rewrites the row when `maintenance_until`
   passes; the middleware simply stops matching. The stale row keeps sitting
-  there until you delete it, harmless but confusing on the next incident.
+  there until you delete it, harmless but confusing on the next incident —
+  `stop_countdown` clears it.
 
 ## Always-open paths
 

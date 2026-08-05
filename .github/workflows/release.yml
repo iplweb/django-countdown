@@ -27,10 +27,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        with:
+          enable-cache: true
+          # uv.lock is gitignored here (this is a library, not an application),
+          # so it never reaches the runner and the default glob matches nothing
+          # — which would leave the cache key frozen forever. Key on the file
+          # that does ship and does change when dependencies change.
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Set up Python
         run: uv python install 3.13
@@ -57,7 +64,7 @@ jobs:
       - name: Build sdist and wheel
         run: uv build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -75,7 +82,7 @@ jobs:
       # OIDC token PyPI exchanges for an upload credential.
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
