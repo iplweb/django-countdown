@@ -84,7 +84,7 @@ Leave the end open when you cannot predict how long the work will take:
 ```console
 $ ./manage.py start_countdown --banner +1m --service indefinite --noinput
 ✓ Created countdown for example.com.
-  ⚠  Indefinite mode — remove the countdown via admin or `manage.py shell` to unblock the site.
+  ⚠  Indefinite mode — the site will not reopen on its own. Run `manage.py stop_countdown` to unblock it.
 ```
 
 Nothing reopens the site on its own in this mode. The maintenance page tells
@@ -96,18 +96,23 @@ comes back for them as soon as you unblock it.
 Deleting the countdown row is the universal "unblock now" action, whatever
 state the window is in:
 
+=== "Command"
+
+    ```console
+    $ ./manage.py stop_countdown --noinput
+    ✓ Removed 1 countdown(s).
+      example.com — unblocked
+    ```
+
+    Add `--site-id N` on a multi-tenant install; without it every site's
+    countdown goes.
+
 === "Admin"
 
     **Site shutdown countdowns** → select the row → **Delete selected**.
 
-=== "Shell"
-
-    ```console
-    $ ./manage.py shell -c "
-    from django_countdown.models import SiteCountdown
-    SiteCountdown.objects.all().delete()
-    "
-    ```
+    The admin stays reachable while the site is blocked, so this works even
+    when you cannot get a shell.
 
 !!! warning "Editing an expired countdown fails validation"
 

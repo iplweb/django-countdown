@@ -71,8 +71,9 @@ processor finds no `SiteCountdown` for their site.
 
 ## Closing every site at once
 
-There is no "all sites" mode. Create a row per site — from a loop, if you
-have many:
+`start_countdown` has no "all sites" mode — closing every tenant means a row per
+site, from a loop if you have many. Reopening them does not: see
+[Reopening everything](#reopening-everything) below.
 
 ```console
 $ ./manage.py shell -c "
@@ -98,14 +99,43 @@ for site in Site.objects.all():
 existing rows. It bypasses `full_clean()`, so validate your timestamps
 yourself — the loop above always schedules into the future.
 
-Reopen everything the same way:
+## Reopening everything
 
 ```console
-$ ./manage.py shell -c "
-from django_countdown.models import SiteCountdown
-SiteCountdown.objects.all().delete()
-"
+$ ./manage.py stop_countdown
 ```
+
+No loop and no shell. `stop_countdown` sweeps every site by default, which is the
+point: it runs when something is blocked and you should not have to work out
+which tenant is to blame first.
+
+## Which commands are site-wide by default
+
+The defaults are not uniform, and the split is deliberate:
+
+| Command | Default target | Widen with |
+|---|---|---|
+| `start_countdown` | the current site | — (loop, per site) |
+| `show_countdown` | **every site** | — |
+| `stop_countdown` | **every site** | — |
+| `extend_countdown` | the current site | `--all` |
+| `shorten_countdown` | the current site | `--all` |
+
+All of them accept `--site-id` to name one tenant.
+
+The two that sweep are the ones you reach for when something is wrong: a
+read-only report, and the command that unblocks. A per-site default there invites
+the failure where you clear the countdown for `SITE_ID=1` while a row attached to
+a different `Site` keeps traffic blocked.
+
+The two that edit a schedule stay narrow, because a wrong target moves *another
+tenant's* maintenance window rather than ending your own.
+
+!!! warning "`stop_countdown --noinput` in a multi-tenant runbook"
+
+    Without `--site-id` it deletes every tenant's countdown, including windows
+    that were merely scheduled and not yet blocking anything. Name the site in
+    automation.
 
 ## Branding the maintenance page per tenant
 

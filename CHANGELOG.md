@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Until now the package could only ever *create* a countdown. There was no
+scriptable way to remove one, adjust one that was already running, or ask what
+the current state was — the documentation's own answer was a `manage.py shell`
+one-liner, composed while the site was down.
+
+### Added
+- **`stop_countdown`** — deletes countdowns and reopens the site. In indefinite
+  mode this is the only way back. Sweeps every site by default, because it runs
+  when something is blocked and you should not have to work out which `SITE_ID`
+  is to blame first; `--site-id` narrows it. Nothing to delete is a success, not
+  an error.
+- **`show_countdown`** — reports which phase each countdown is in and how long
+  until the next transition. Always exits `0`, including when the site is
+  blocked, because that is a normal state for this package rather than a failure
+  of the command. `--json` emits a machine-readable array for monitoring and
+  deploy gates.
+- **`extend_countdown`** and **`shorten_countdown`** — move a boundary of a
+  window already in flight. `--banner` moves when the site closes and slides the
+  whole schedule, preserving the window's length; `--service` moves when it
+  reopens. Both default to the current site, with `--all` to widen: they edit a
+  schedule rather than ending one, so a wrong target would move another tenant's
+  window.
+- **`extend_countdown --at-least 5m`** — raises a floor rather than adding time,
+  so repeated runs absorb instead of accumulating and a retry can never
+  overshoot. This makes a dead man's switch possible: a deploy loop holds the
+  window open while it works, and if the deploy dies the site reopens by itself.
+
+### Changed
+- `start_countdown`'s indefinite-mode warning now names `stop_countdown` instead
+  of pointing at the admin and `manage.py shell`.
+
+### Fixed
+- Documentation stated "There is no `stop_countdown`" and built a deploy recipe
+  on shell one-liners. Both are replaced, and the guide now lays the heartbeat
+  and indefinite-window patterns side by side rather than declaring a winner —
+  they fail in opposite directions, and the heartbeat's own host is often the
+  machine being deployed.
+
 ## [0.2.1] — 2026-05-13
 
 Example-project polish only — the published `django_countdown` wheel is

@@ -94,7 +94,8 @@ nav:
       - How it works: guide/how-it-works.md
       - Countdown banner: guide/banner.md
       - Blocked page: guide/blocked-page.md
-      - Management command: guide/management-command.md
+      - Scheduling a countdown: guide/management-command.md
+      - Managing a running countdown: guide/managing-a-countdown.md
       - Django admin: guide/admin.md
       - Multi-site setup: guide/multisite.md
       - Translations: guide/i18n.md
