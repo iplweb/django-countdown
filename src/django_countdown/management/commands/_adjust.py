@@ -128,10 +128,13 @@ class AdjustCountdownCommand(BaseCommand):
         also drags the service edge, and no answer to that is obvious to a
         reader — so it is refused rather than guessed.
         """
+        # Compare against None, not truthiness: `--service ""` means the user
+        # did pick a mode and left the value empty, and telling them a mode is
+        # missing would send them to fix the wrong thing.
         given = [
             (flag, mode, options.get(dest))
             for flag, dest, mode in self._modes()
-            if options.get(dest)
+            if options.get(dest) is not None
         ]
         if len(given) != 1:
             flags = " / ".join(flag for flag, _, _ in self._modes())
@@ -143,6 +146,11 @@ class AdjustCountdownCommand(BaseCommand):
             duration = parse_relative(raw)
         except ValueError as exc:
             raise CommandError(f"{flag}: {exc}") from exc
+        if not duration:
+            # parse_relative happily returns timedelta(0) for "+0m". Every guard
+            # would pass, the preview would read "X → X", and the report would
+            # claim a change that never happened.
+            raise CommandError(f"{flag}: the duration must be longer than zero.")
         return mode, duration
 
     # ----------------------------------------------------------------- guards
@@ -262,7 +270,11 @@ class AdjustCountdownCommand(BaseCommand):
             self.stdout.write(self.style.NOTICE("Aborted."))
             return
 
-        self._report(apply_atomic(targets, plan))
+        # Pin the write to exactly the rows the operator saw and approved. Left
+        # unfiltered, a row created while the prompt sat open would be planned,
+        # written — or abort the whole run on a guard nobody was shown.
+        approved = targets.filter(pk__in=[row.pk for row, _ in previews])
+        self._report(apply_atomic(approved, plan))
 
     # ----------------------------------------------------------------- output
 

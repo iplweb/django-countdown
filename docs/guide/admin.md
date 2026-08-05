@@ -58,28 +58,21 @@ as field errors:
     `countdown_time` is in the past, **any** save of that row fails — including
     one that only extends `maintenance_until` to buy yourself more time.
 
-    Workarounds, in order of preference:
+    This is a limitation of the **admin form**, not of the package. The
+    management commands exist precisely for it:
 
-    1. **Delete the row and create a new one** with a fresh, near-future
-       countdown time. This is the intended path.
-    2. **Schedule indefinitely from the start** when the work has uncertain
-       length, and delete the row when you are done — no extension needed.
-    3. **Update in the shell**, which bypasses `full_clean()`:
+    ```console
+    $ ./manage.py extend_countdown --service +30m
+    ```
 
-        ```console
-        $ ./manage.py shell -c "
-        from datetime import timedelta
-        from django.utils import timezone
-        from django_countdown.models import SiteCountdown
-        SiteCountdown.objects.filter(site_id=1).update(
-            maintenance_until=timezone.now() + timedelta(minutes=30)
-        )
-        "
-        ```
+    `extend_countdown` validates against explicit guards instead of
+    `full_clean()`, so it can move the end of a window that is already running
+    — which is the state you are in when you need it. See
+    [Managing a running countdown](managing-a-countdown.md).
 
-        `QuerySet.update()` writes straight to the database without running
-        model validation. Use it deliberately, and only for pushing an end
-        time out.
+    From the admin alone, the options are to delete the row and create a fresh
+    one, or to schedule indefinitely from the start and `stop_countdown` when
+    the work is done.
 
     One field remains freely editable while blocked: nothing stops you from
     deleting the row, which is the universal unblock.

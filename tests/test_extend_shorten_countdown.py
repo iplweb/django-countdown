@@ -325,12 +325,20 @@ def test_an_unparseable_or_negative_duration_is_an_error(bad):
 
 @pytest.mark.django_db
 def test_a_negative_duration_on_the_command_line_is_an_error():
-    """argparse reads ``-5m`` as a flag; either way the run must not write."""
+    """argparse reads ``-5m`` as a flag and rejects it before our code runs, so
+    no mutation of this package can turn the raise below red — the sibling test
+    using the kwargs form is the one guarding ``parse_relative``. What this pins
+    is the part that is ours: whatever argparse decides, nothing gets written."""
     now = timezone.now()
-    make_countdown(closes=now + 10 * MINUTE, reopens=now + 40 * MINUTE)
+    row = make_countdown(closes=now + 10 * MINUTE, reopens=now + 40 * MINUTE)
+    before_closes, before_reopens = row.countdown_time, row.maintenance_until
 
     with pytest.raises(CommandError):
         call_command("extend_countdown", "--service", "-5m", "--noinput")
+
+    row.refresh_from_db()
+    assert row.countdown_time == before_closes
+    assert row.maintenance_until == before_reopens
 
 
 # ---------- --at-least -------------------------------------------------------
@@ -629,3 +637,69 @@ def test_extending_service_keeps_a_blocked_site_blocked_until_the_new_end(
 
     clock["now"] = base + 45 * MINUTE  # past the new one
     assert client.get("/").status_code == 200
+
+
+@pytest.mark.django_db
+def test_a_zero_duration_is_refused():
+    """`+0m` parses to timedelta(0), passes every guard, and would report
+    '✓ Extended 1 countdown(s).' after writing the value back unchanged —
+    a success message for something that did not happen."""
+    countdown = make_countdown()
+    before = SiteCountdown.objects.get(pk=countdown.pk).updated_at
+
+    with pytest.raises(CommandError, match="longer than zero"):
+        call_command("extend_countdown", "--service", "+0m", "--noinput")
+
+    assert SiteCountdown.objects.get(pk=countdown.pk).updated_at == before
+
+
+@pytest.mark.django_db
+def test_an_empty_duration_reports_the_duration_not_a_missing_mode():
+    """The user did pass a mode; the value was empty. Reporting 'exactly one of
+    --banner / --service is required' sends them to fix the wrong thing."""
+    make_countdown()
+
+    with pytest.raises(CommandError) as excinfo:
+        call_command("extend_countdown", service="", noinput=True)
+
+    assert "exactly one of" not in str(excinfo.value)
+
+
+@pytest.mark.django_db
+def test_only_the_previewed_rows_are_written(mocker, second_site):
+    """The operator confirms what the preview showed. A row that appears while
+    the prompt sits open was never on screen, so it must not be silently
+    included in the write — under --all it would otherwise have its schedule
+    moved, or abort the whole run on a guard the operator never saw."""
+    now = timezone.now()
+    on_screen = make_countdown(
+        closes=now + timedelta(minutes=10),
+        reopens=now + timedelta(minutes=40),
+        message="On screen",
+    )
+    latecomer_site = Site.objects.create(domain="late.example.com", name="Late")
+
+    def answer_yes_but_something_appeared(prompt, default=None):
+        make_countdown(
+            site_id=latecomer_site.pk,
+            closes=now + timedelta(minutes=5),
+            reopens=now + timedelta(minutes=15),
+            message="Appeared mid-prompt",
+        )
+        return "y"
+
+    mocker.patch(
+        "django_countdown.management.commands._cli.is_interactive", return_value=True
+    )
+    mocker.patch(
+        "django_countdown.management.commands._cli.ask",
+        side_effect=answer_yes_but_something_appeared,
+    )
+
+    call_command("extend_countdown", "--service", "+20m", "--all", stdout=StringIO())
+
+    on_screen.refresh_from_db()
+    assert on_screen.maintenance_until == now + timedelta(minutes=60)
+
+    latecomer = SiteCountdown.objects.get(site=latecomer_site)
+    assert latecomer.maintenance_until == now + timedelta(minutes=15)

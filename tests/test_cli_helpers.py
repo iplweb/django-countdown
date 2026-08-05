@@ -76,3 +76,16 @@ def test_resolve_site_rejects_an_unknown_id():
 def test_resolve_site_falls_back_to_the_current_site():
     """No id means SITE_ID from settings, which the test settings pin to 1."""
     assert resolve_site(None).pk == 1
+
+
+@pytest.mark.django_db
+def test_resolve_site_reports_a_missing_site_id_as_a_command_error(settings):
+    """`multisite.md` tells multi-tenant users to drop SITE_ID and let the host
+    decide. Off a request there is no host, and `get_current()` raises
+    ImproperlyConfigured rather than DoesNotExist — which used to escape as a
+    traceback, making the friendly message below unreachable on exactly the
+    setup the docs recommend."""
+    settings.SITE_ID = None
+
+    with pytest.raises(CommandError, match="--site-id"):
+        resolve_site(None)

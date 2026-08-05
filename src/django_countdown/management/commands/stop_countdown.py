@@ -78,12 +78,20 @@ class Command(BaseCommand):
             return
 
         with transaction.atomic():
-            for countdown in countdowns:
-                countdown.delete()
+            # Delete through the queryset, not the list built before the prompt.
+            # The contract is "after this returns, nothing is blocking" — a
+            # countdown that appeared while the prompt sat open has to go too,
+            # or the command reports success over a site that is still closed.
+            removed = targets.delete()[0]
 
         self.stdout.write("")
-        self.stdout.write(
-            self.style.SUCCESS(f"✓ Removed {len(domains)} countdown(s).")
-        )
+        self.stdout.write(self.style.SUCCESS(f"✓ Removed {removed} countdown(s)."))
         for domain in domains:
             self.stdout.write(f"  {domain} — unblocked")
+        if removed > len(domains):
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  ⚠  {removed - len(domains)} more appeared after the "
+                    "listing above and were removed too."
+                )
+            )

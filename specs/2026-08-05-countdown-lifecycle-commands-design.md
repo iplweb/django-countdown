@@ -1,13 +1,14 @@
 # Countdown lifecycle commands — design
 
 **Date:** 2026-08-05
-**Status:** revised after a second review; step 1 has shipped
+**Status:** shipped, and reconciled with the implementation
 **Branch:** `worktree-stop-countdown` (rebased onto `38db43b`)
 
-Landed so far: `a3d1a74` (the `_cli.py` / `utils.py` extraction) and `8cef370`
-(the shared core — `classify`, `resolve_targets`, `confirm`). The *Files* table
-below still lists them as new; read it as the full inventory rather than a
-to-do list.
+Everything described here is built and tested (204 tests). The *Files* table is
+an inventory of what exists, not a to-do list. Three post-implementation
+corrections are folded in below: the guard table's "Applies to" column
+understated the shipped behaviour, zero-length durations were accepted, and the
+`resolve_site` reference had moved.
 
 ## Problem
 
@@ -101,8 +102,11 @@ anyway. The default buys nothing and adds a footgun, so these two match
 `start_countdown` and target the current site.
 
 If `--site-id` names a `Site` that does not exist, the command raises
-`CommandError`. A typo in the id must not be reported as "nothing to do". This
-mirrors `start_countdown._resolve_site` (`start_countdown.py:210-215`).
+`CommandError`. A typo in the id must not be reported as "nothing to do". This is
+`resolve_site` in `_cli.py`, extracted from `start_countdown`. It also catches
+`ImproperlyConfigured`, which is what `Site.objects.get_current()` raises with no
+`SITE_ID` and no request — the host-routed multi-tenant setup `docs/guide/multisite.md`
+recommends. Without that, precisely the configuration the docs teach gets a traceback.
 
 ### Empty target
 
@@ -282,6 +286,13 @@ passing several or none is a `CommandError`. Allowing `--banner` and `--service`
 together would raise the question of whether the banner shift also drags the
 service edge, and there is no answer that is obvious to a reader.
 
+"Positive" has to be enforced here rather than inherited. `parse_relative`
+returns `timedelta(0)` for `+0m`, and a zero-length nudge passes every guard,
+previews `X → X`, writes the value back unchanged and reports a success that did
+not happen — so the mode resolver rejects it. The mode flags are read by
+presence rather than truthiness for the same class of reason: `--service ""`
+should report an empty duration, not claim that no mode was given.
+
 `--at-least` belongs to `extend_countdown` only. Its inverse — "make sure the
 window is *no more* than N from now" — is a scheduled shutdown, not a shortening,
 and nobody has asked for it.
@@ -422,10 +433,10 @@ Each raises `CommandError` naming the command that *does* fit the intent:
 |---|---|---|
 | `countdown_time is None` | all modes | Nothing is scheduled. Use `start_countdown`. |
 | `--banner` on an already-expired countdown | `extend`, `shorten` | The banner phase is over; the site is closed. Sliding it would reopen the site and replay the banner. Use `start_countdown --force` to reschedule, or `stop_countdown` to reopen now. |
-| `shorten --banner` landing at or before now | `shorten` | `countdown_time` must stay in the future — the invariant at `models.py:80-88`. |
+| `--banner` landing at or before now | both, in practice `shorten` | `countdown_time` must stay in the future — the invariant at `models.py:80-88`. Implemented sign-independently, so an `extend` on an already-malformed row hits it too. It cannot fire on a well-formed row under `extend`, but with no `full_clean()` there is no second line of defence, so the check is not conditioned on the sign. |
 | `maintenance_until is None` | `--service` only | The window is indefinite; it has no end to move. Use `start_countdown --force` to give it one, or `stop_countdown` to reopen now. (`--at-least` exits `0` with a warning here instead.) |
 | Window already finished (`now >= maintenance_until`) | `--service`, `--at-least` | The site has **already reopened**. Moving the end of a window that is over is a state transition, not a nudge: `extend` would close a site visitors are currently using, and `shorten` would edit a row that no longer governs anything. Use `start_countdown --force` to schedule a new window, or `stop_countdown` to clear the stale row. |
-| `shorten --service` landing at or before `max(now, countdown_time)` | `shorten` | Two invariants at once. Landing before `now` means reopening immediately, which is `stop_countdown`; it would also leave a stale row that forces `--force` on the next `start_countdown` (`start_countdown.py:299-305`) — the clutter `stop_countdown` exists to avoid. Landing before `countdown_time` violates `models.py:89-97` outright, and the resulting row is worse than invalid: during the banner phase it produces a countdown that announces a closure and then never closes, because at `countdown_time` the middleware finds `is_expired()` and `is_maintenance_finished()` both true and passes the request straight through (`middleware.py:52-54`). |
+| `--service` landing at or before `max(now, countdown_time)` | both, in practice `shorten` | Two invariants at once. Landing before `now` means reopening immediately, which is `stop_countdown`; it would also leave a stale row that forces `--force` on the next `start_countdown` (`start_countdown.py:299-305`) — the clutter `stop_countdown` exists to avoid. Landing before `countdown_time` violates `models.py:89-97` outright, and the resulting row is worse than invalid: during the banner phase it produces a countdown that announces a closure and then never closes, because at `countdown_time` the middleware finds `is_expired()` and `is_maintenance_finished()` both true and passes the request straight through (`middleware.py:52-54`). |
 
 The finished-window guard is the reason `extend_countdown --at-least` cannot
 re-close a site behind the operator's back: a stale heartbeat firing after the
@@ -585,6 +596,9 @@ offers `--at-least`.
 This does not break the existing tests: `tests/test_start_countdown.py:11-15`
 imports only `parse_relative`, `parse_service` and `INDEFINITE_TOKENS`, all of
 which stay in `start_countdown.py`, and no other test module imports from it.
+`_adjust.py` does import `parse_relative` from it, deliberately: the duration
+syntax must be one implementation across all five commands, not two that agree
+today.
 
 ### `django_countdown/utils.py` (new)
 

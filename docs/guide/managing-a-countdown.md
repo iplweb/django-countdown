@@ -196,7 +196,7 @@ That makes it the one mode that belongs in an unattended loop:
 
 ```bash title="deploy.sh"
 ./manage.py start_countdown --banner +10m --service +15m \
-    --message "Deploying" --noinput --force
+    --message "Deploying" --noinput --force --site-id "$SITE"
 
 while deploy_is_running; do
     ./manage.py extend_countdown --at-least 5m --site-id "$SITE" --noinput \
@@ -206,6 +206,13 @@ done
 
 ./manage.py stop_countdown --site-id "$SITE" --noinput
 ```
+
+!!! warning "Name the same site on every line"
+
+    `--site-id` has to appear on all three commands, not just some. If the
+    heartbeat targets a site that has no countdown, it exits `0` — that is the
+    deliberate empty-target behaviour — so a mismatched `$SITE` gives you a loop
+    that reports success while holding nothing at all.
 
 If the deploy finishes, `stop_countdown` reopens the site. If the deploy **dies**,
 nothing renews the floor, the window expires five minutes later, and the site
@@ -260,16 +267,28 @@ is the worse outcome.
 
 ## Errors these commands raise
 
-| Message | Cause |
-|---|---|
-| `Site with id=N does not exist` | Bad `--site-id`. A typo is an error, never a quiet "nothing to do". |
-| `--site-id and --all are mutually exclusive` | Pick one. |
-| `no terminal attached … pass --noinput` | Run from CI or a pipe with a confirmation pending. |
-| `nothing is scheduled` | The row has no `countdown_time`. Use `start_countdown`. |
-| The banner phase is over | `--banner` on a countdown that already expired. Use `start_countdown --force` to reschedule, or `stop_countdown`. |
-| The window is indefinite | `--service` has no end to move. `--at-least` warns instead of failing. |
-| The site has already reopened | `--service`/`--at-least` on a finished window. Moving the end of a window that is over is a state transition, not a nudge. |
+Guard failures all arrive wrapped, so grep for the shape rather than the phrase:
+
+```
+CommandError: Refusing to change anything — example.com: <reason>; tenant-b.example.com: <reason>
+```
 
 When a run targets several sites and any one of them fails a guard, **nothing is
 written anywhere** — every offending site is named at once, so fixing them does
 not take one run per problem.
+
+| Message | Cause |
+|---|---|
+| `Site with id=N does not exist` | Bad `--site-id`. A typo is an error, never a quiet "nothing to do". |
+| `No current Site — set SITE_ID …, or pass --site-id` | The sites framework is not configured, or `SITE_ID` is unset on a host-routed install. See [Multi-site setup](multisite.md). |
+| `--site-id and --all are mutually exclusive` | Pick one. |
+| `exactly one of --banner / --service / --at-least is required` | No mode flag, or more than one. |
+| `--service: can't parse 'nope' as a duration` | Bad duration. Use `+<N>[s\|m\|h\|d]`. |
+| `--service: the duration must be longer than zero` | `+0m` would report a change that never happened. |
+| `no terminal attached … pass --noinput` | Run from CI or a pipe with a confirmation pending. |
+| `nothing is scheduled for this site` | The row has no `countdown_time`. Use `start_countdown`. |
+| `the banner phase is over and the site is closed` | `--banner` on a countdown that already expired. Use `start_countdown --force` to reschedule, or `stop_countdown`. |
+| `the site would close …, which is not in the future` | `shorten --banner` by more than the time left before closing. |
+| `the maintenance window is indefinite` | `--service` has no end to move. `--at-least` warns instead of failing. |
+| `the maintenance window is already over` | `--service`/`--at-least` on a finished window. Moving the end of a window that is over is a state transition, not a nudge. |
+| `the window would end …, at or before …` | `shorten --service` past the reopen point, or — during the banner phase — past the moment the site is due to close. A window ending before it begins would announce a closure that never happens. |

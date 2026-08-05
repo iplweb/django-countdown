@@ -100,12 +100,16 @@ state the window is in:
 
     ```console
     $ ./manage.py stop_countdown --noinput
+    About to remove 1 countdown(s):
+      example.com  [banner showing]  2026-08-05 03:50:49 CDT  — Emergency maintenance
+
     ✓ Removed 1 countdown(s).
       example.com — unblocked
     ```
 
-    Add `--site-id N` on a multi-tenant install; without it every site's
-    countdown goes.
+    It always lists what it is about to remove, and asks first unless you pass
+    `--noinput`. Add `--site-id N` on a multi-tenant install; without it every
+    site's countdown goes.
 
 === "Admin"
 
@@ -114,11 +118,18 @@ state the window is in:
     The admin stays reachable while the site is blocked, so this works even
     when you cannot get a shell.
 
-!!! warning "Editing an expired countdown fails validation"
+!!! warning "Editing an expired countdown fails validation *in the admin*"
 
-    `SiteCountdown.clean()` rejects any `countdown_time` in the past, so
-    once a window has opened you cannot save the form again from the admin —
-    even to push the end time out. Delete the row and create a new one.
+    `SiteCountdown.clean()` rejects any `countdown_time` in the past, so once a
+    window has opened you cannot save the form again from the admin — even to
+    push the end time out.
+
+    Use the command instead; it validates against explicit guards rather than
+    the model form:
+
+    ```console
+    $ ./manage.py extend_countdown --service +30m
+    ```
 
 ## Try it without touching your project
 

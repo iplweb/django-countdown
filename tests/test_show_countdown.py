@@ -320,8 +320,14 @@ def test_reporting_any_phase_exits_zero(phase):
 
     # call_command re-raises anything the command signals; SystemExit would
     # surface here too. Reaching the asserts means the exit status was 0.
-    assert call_command("show_countdown", stdout=StringIO()) is None
-    assert call_command("show_countdown", "--json", stdout=StringIO()) is None
+    # Assert the report was actually produced as well — "returned None" alone
+    # would also hold for a command that silently did nothing.
+    human, machine = StringIO(), StringIO()
+    assert call_command("show_countdown", stdout=human) is None
+    assert call_command("show_countdown", "--json", stdout=machine) is None
+
+    assert "example.com" in human.getvalue()
+    assert json.loads(machine.getvalue())[0]["phase"] == phase
 
 
 # ---------- agreement with the middleware -------------------------------------

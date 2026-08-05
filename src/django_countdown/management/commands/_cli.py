@@ -10,6 +10,7 @@ import sys
 from datetime import datetime
 
 from django.contrib.sites.models import Site
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import CommandError
 from django.db import transaction
 from django.utils import timezone
@@ -225,7 +226,11 @@ def resolve_site(site_id: int | None) -> Site:
             raise CommandError(f"Site with id={site_id} does not exist") from exc
     try:
         return Site.objects.get_current()
-    except Site.DoesNotExist as exc:
+    except (Site.DoesNotExist, ImproperlyConfigured) as exc:
+        # ImproperlyConfigured is what get_current() raises with no SITE_ID and
+        # no request — the host-based multi-tenant setup the docs recommend.
+        # Without it here, that configuration gets a traceback and this message
+        # is unreachable.
         raise CommandError(
             "No current Site — set SITE_ID and run `migrate sites`, "
             "or pass --site-id."

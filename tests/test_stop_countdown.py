@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from django_countdown.management.commands._cli import (
     PHASE_BANNER,
+    PHASE_LABELS,
     PHASE_UNSCHEDULED,
     format_when,
 )
@@ -209,7 +210,9 @@ def test_lists_what_will_go_before_deleting(two_sites):
     written = out.getvalue()
     assert doomed.message in written
     assert format_when(doomed.countdown_time) in written
-    assert PHASE_BANNER in written
+    # The label, not the key: PHASE_BANNER is "banner", which is a substring of
+    # the label "banner showing", so asserting the key would pass either way.
+    assert PHASE_LABELS[PHASE_BANNER] in written
 
 
 @pytest.mark.django_db
@@ -256,3 +259,39 @@ def test_stopping_a_blocking_countdown_reopens_the_site(client):
 
     assert SiteCountdown.objects.count() == 0
     assert client.get("/").status_code == 200
+
+
+@pytest.mark.django_db
+def test_a_countdown_created_while_the_prompt_was_open_is_also_removed(mocker):
+    """The command's contract is 'after this returns, nothing is blocking', not
+    'the rows on screen are gone'. Deleting the pre-prompt list would leave a
+    countdown that appeared mid-prompt still blocking the site."""
+    now = timezone.now()
+    SiteCountdown.objects.create(
+        site=Site.objects.get(pk=1),
+        countdown_time=now + timedelta(minutes=10),
+        maintenance_until=now + timedelta(minutes=40),
+        message="On screen",
+    )
+    latecomer = Site.objects.create(domain="late.example.com", name="Late")
+
+    def answer_yes_but_something_changed(prompt, default=None):
+        SiteCountdown.objects.create(
+            site=latecomer,
+            countdown_time=now + timedelta(minutes=5),
+            maintenance_until=now + timedelta(minutes=20),
+            message="Appeared mid-prompt",
+        )
+        return "y"
+
+    mocker.patch(
+        "django_countdown.management.commands._cli.is_interactive", return_value=True
+    )
+    mocker.patch(
+        "django_countdown.management.commands._cli.ask",
+        side_effect=answer_yes_but_something_changed,
+    )
+
+    call_command("stop_countdown", stdout=StringIO())
+
+    assert SiteCountdown.objects.count() == 0
