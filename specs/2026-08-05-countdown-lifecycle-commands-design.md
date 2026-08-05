@@ -1,8 +1,13 @@
 # Countdown lifecycle commands — design
 
 **Date:** 2026-08-05
-**Status:** draft, revised after review
+**Status:** revised after a second review; step 1 has shipped
 **Branch:** `worktree-stop-countdown` (rebased onto `38db43b`)
+
+Landed so far: `a3d1a74` (the `_cli.py` / `utils.py` extraction) and `8cef370`
+(the shared core — `classify`, `resolve_targets`, `confirm`). The *Files* table
+below still lists them as new; read it as the full inventory rather than a
+to-do list.
 
 ## Problem
 
@@ -105,25 +110,31 @@ mirrors `start_countdown._resolve_site` (`start_countdown.py:210-215`).
 |---|---|
 | `show_countdown` | prints a notice, exits `0` |
 | `stop_countdown` | prints a notice, exits `0` |
-| `extend_countdown` | `CommandError` |
+| `extend_countdown --banner` / `--service` | `CommandError` |
+| `extend_countdown --at-least` | prints a notice, exits `0` |
 | `shorten_countdown` | `CommandError` |
 
 `stop_countdown` is genuinely idempotent — deleting nothing twice is deleting
 nothing — so a no-op keeps it safe in a deploy script without `|| true`.
 
-`extend`/`shorten` are **not** idempotent in their `--banner`/`--service` modes:
-a retried step extends twice. Since a retry is already unsafe there, silently
-succeeding when there is nothing to extend would only hide a second kind of
-mistake. They fail loudly instead, which also makes them consistent with their own
-`countdown_time is None` guard — "no row" and "row with nothing scheduled" mean
-the same thing to an operator and must not exit differently.
+`extend`/`shorten` are **not** safe to retry in their `--banner`/`--service`
+modes: a repeated step moves the boundary again. Since a retry is already unsafe
+there, silently succeeding when there is nothing to extend would only hide a
+second kind of mistake. They fail loudly instead, which also makes them
+consistent with their own `countdown_time is None` guard — "no row" and "row with
+nothing scheduled" mean the same thing to an operator and must not exit
+differently.
 
-The `--at-least` mode *is* idempotent; see its section for the heartbeat idiom
-that relies on it.
+`--at-least` is the exception, and deliberately so. It is the mode built for
+unattended loops, and a loop needs to distinguish "there is nothing to hold, we
+are done" from "something is wrong". Making the empty target an error would force
+every caller to write `|| true`, which would then swallow the *real* failures
+too. So `--at-least` treats an empty target as success, and every non-zero exit
+from it is a genuine alarm. See its section.
 
-For `stop` and `show`, the empty check runs **before** the TTY check, so a
-non-TTY run with nothing to do is a clean no-op rather than an error. There is
-nothing to confirm, so refusing to proceed would be noise.
+For `stop`, `show` and `--at-least`, the empty check runs **before** the TTY
+check, so a non-TTY run with nothing to do is a clean no-op rather than an error.
+There is nothing to confirm, so refusing to proceed would be noise.
 
 ### Confirmation
 
@@ -174,8 +185,22 @@ with transaction.atomic():
 The preview shown before the prompt is computed from the first read; the values
 actually written are recomputed from the re-read rows. If a guard that passed now
 fails, the command aborts and says the state changed rather than writing a stale
-plan. `select_for_update` also closes the window where a concurrent admin edit
-would be clobbered by `save(update_fields=...)`.
+plan.
+
+**What `select_for_update` does and does not buy.** On PostgreSQL and MySQL it
+also closes the window where a concurrent admin edit would be clobbered by
+`save(update_fields=...)`. On SQLite it does nothing at all: the backend reports
+`has_select_for_update = False` (`django/db/backends/base/features.py:50`, not
+overridden by the SQLite backend) and the compiler emits the `FOR UPDATE` clause
+only when the backend supports it (`django/db/models/sql/compiler.py:840`) — no
+warning, no exception, silently absent.
+
+The consequence is worth being explicit about, because the test suite runs on
+SQLite (`tests/settings.py`, `:memory:`): the row-locking half of this design is
+reviewed but never executed by the tests. Only the re-read-and-reguard half is
+covered, and that half is backend-independent because it turns on `now` advancing
+rather than on a competing writer. The call stays in — it is free where it works
+— but no claim of concurrency safety may rest on it for SQLite deployments.
 
 ### Exit statuses
 
@@ -224,6 +249,23 @@ there is nothing to replace.
    and returns without deleting.
 5. A single queryset `DELETE`, inside `transaction.atomic()`.
 6. Report `✓ Removed N countdown(s).` and the affected domains.
+
+### The preview race, accepted deliberately
+
+`stop_countdown` has the same shape of race that `extend`/`shorten` guard
+against: the operator reads the listing, the prompt sits open, someone else runs
+`start_countdown --force` and replaces the schedule on the same row
+(`update_or_create`, `start_countdown.py:342`), the operator confirms, and a
+schedule they never saw is deleted.
+
+Unlike the extend/shorten case, this is accepted rather than fixed. Those
+commands compute a *derived* value from what they read, so a stale read yields a
+wrong write; `stop_countdown` writes nothing derived. Its contract is "after this
+returns, nothing is blocking" — and deleting a row that appeared thirty seconds
+ago satisfies that contract exactly as well as deleting the one on screen. The
+operator's intent is about the end state, not about the particular row.
+
+Noted here so the asymmetry is a decision on the record rather than an oversight.
 
 ---
 
@@ -285,7 +327,7 @@ later".
 
 Moving one edge alone is what `--service` is for.
 
-### `--at-least`: the idempotent mode
+### `--at-least`: the safe-to-repeat mode
 
 `extend_countdown --at-least 5m` guarantees that the window ends **no sooner than
 five minutes from now**. It does not add anything. If `maintenance_until` is
@@ -293,10 +335,18 @@ already further out, the command reports "already covered" and writes nothing.
 
 Two properties follow, and both matter:
 
-**It is idempotent.** Run ten times, it leaves the same state as running once.
-`--service` cannot say that: a retried deploy step extends the window twice.
-`--at-least` is therefore the only mode that belongs in a retry loop or a cron
-job.
+**Repeated runs absorb rather than accumulate.** A run at `t₀` followed by a run
+at `t₁` leaves the same state as a single run at `t₁`, because
+`max(M, t₀+D, t₁+D) = max(M, t₁+D)`. The last run wins and the floor is never
+further out than `D` from the present.
+
+This is *not* idempotence, and the difference is worth being precise about: under
+a moving clock each binding run does write a new value and does bump
+`updated_at`. Only a frozen clock makes a second run a genuine no-op. The dead
+man's switch below works precisely *because* repeated runs advance the state —
+calling the mode idempotent would describe the opposite of what makes it useful.
+What it guarantees is that a retry can never overshoot, which is what `--service`
+cannot say: a retried deploy step there moves the boundary twice.
 
 **It is measured from now, not from `countdown_time`.** That is what makes it a
 different mode rather than a modifier. A heartbeat has no idea when the window was
@@ -307,26 +357,62 @@ Which gives the dead man's switch:
 ```bash
 # while the deploy runs, keep the window five minutes ahead of the present
 while deploy_is_running; do
-    ./manage.py extend_countdown --at-least 5m --noinput || true
+    ./manage.py extend_countdown --at-least 5m --site-id "$SITE" --noinput \
+        || alert "countdown protection lapsed"
     sleep 60
 done
 ```
 
 If the deploy finishes, `stop_countdown` reopens the site. If the deploy *dies*,
 nothing renews the floor, the window expires five minutes later and the site
-reopens by itself. That is strictly better than the current documented advice
-(`docs/guide/management-command.md:184-186`), which recommends `--service
-indefinite` plus an explicit delete at the end — safe when the deploy succeeds,
-and a permanently closed site when it does not.
+reopens by itself.
 
-The `|| true` is deliberate and documented: if an operator has already run
-`stop_countdown`, there is no row, the command exits non-zero per the empty-target
-rule, and the heartbeat must not resurrect anything.
+**No `|| true`.** An earlier draft of this recipe swallowed every failure, on the
+grounds that an operator may have run `stop_countdown` and the heartbeat must not
+resurrect anything. That reasoning was right about the cause and wrong about the
+cure: in a shell, "the row is gone" and "the floor lapsed and the site is already
+serving traffic mid-deploy" are both exit 1 and indistinguishable, so `|| true`
+would silence the alarm along with the noise — turning the finished-window guard
+into dead code. That is why the empty target is a *success* for `--at-least`
+(see *Empty target*). With that, the recipe needs no `|| true`, and every non-zero
+exit is a real alarm worth waking someone for.
 
-`--at-least` against an **indefinite** window is a silent success, not an error.
-"Never ends" satisfies "ends no sooner than five minutes from now", so there is
-nothing to do. This is the one place `--at-least` and `--service` deliberately
-diverge, and it exists so a heartbeat does not fall over on an indefinite window.
+The `--site-id` is likewise deliberate: `stop_countdown` sweeps every site by
+default, so a multi-tenant runbook must name its target on both ends rather than
+let the reopen half take out a neighbour's scheduled window.
+
+`--at-least` against an **indefinite** window writes nothing and exits `0` — but
+it prints a warning. "Never ends" does satisfy "ends no sooner than five minutes
+from now", so there is genuinely nothing to do; the trouble is that the guarantee
+the operator wanted is absent. The dead man's switch cannot fire against a window
+that never expires, so a heartbeat bolted onto an indefinite window provides
+exactly no protection, silently. The warning is the difference between a
+no-op and a false sense of safety.
+
+### Which deploy pattern to use
+
+The heartbeat is not universally safer than the indefinite window it replaces —
+the two fail in opposite directions, and the choice depends on which failure is
+tolerable:
+
+| | Deploy process dies | Heartbeat host dies mid-migration |
+|---|---|---|
+| `--service indefinite` + explicit `stop_countdown` | site stays closed until someone notices | site stays closed — safe |
+| `--at-least` heartbeat | site reopens by itself after `D` — safe | site reopens onto a half-migrated database |
+
+The second column is the one to think about, because the heartbeat host is very
+often *the machine being deployed*. Half-installed dependencies or an
+incompatible migration can take `extend_countdown` down along with everything
+else, and then the window lapses while the deploy is still running.
+
+So: use the heartbeat when an early reopen is survivable and an unattended
+permanent closure is not. Use the indefinite window when serving a half-migrated
+database is the worse outcome. Both belong in the docs; neither is the default
+answer.
+
+One more sharp edge: `D` is consumed by clock skew between the heartbeat host and
+the database, so pick it with room to spare rather than at the theoretical
+minimum.
 
 ### Guards
 
@@ -337,9 +423,9 @@ Each raises `CommandError` naming the command that *does* fit the intent:
 | `countdown_time is None` | all modes | Nothing is scheduled. Use `start_countdown`. |
 | `--banner` on an already-expired countdown | `extend`, `shorten` | The banner phase is over; the site is closed. Sliding it would reopen the site and replay the banner. Use `start_countdown --force` to reschedule, or `stop_countdown` to reopen now. |
 | `shorten --banner` landing at or before now | `shorten` | `countdown_time` must stay in the future — the invariant at `models.py:80-88`. |
-| `maintenance_until is None` | `--service` only | The window is indefinite; it has no end to move. Use `start_countdown --force` to give it one, or `stop_countdown` to reopen now. (`--at-least` succeeds silently here instead.) |
-| Window already finished (`now >= maintenance_until`) | `--service`, `--at-least` | The site has **already reopened**. Extending would close a site that visitors are currently using — a state transition, not a nudge. Use `start_countdown --force` to schedule a new window. |
-| `shorten --service` landing at or before now | `shorten` | Reopening immediately is `stop_countdown`. Landing between `countdown_time` and now would reopen the site *and* leave a stale row that forces `--force` on the next `start_countdown` (`start_countdown.py:299-305`) — the clutter `stop_countdown` exists to avoid. |
+| `maintenance_until is None` | `--service` only | The window is indefinite; it has no end to move. Use `start_countdown --force` to give it one, or `stop_countdown` to reopen now. (`--at-least` exits `0` with a warning here instead.) |
+| Window already finished (`now >= maintenance_until`) | `--service`, `--at-least` | The site has **already reopened**. Moving the end of a window that is over is a state transition, not a nudge: `extend` would close a site visitors are currently using, and `shorten` would edit a row that no longer governs anything. Use `start_countdown --force` to schedule a new window, or `stop_countdown` to clear the stale row. |
+| `shorten --service` landing at or before `max(now, countdown_time)` | `shorten` | Two invariants at once. Landing before `now` means reopening immediately, which is `stop_countdown`; it would also leave a stale row that forces `--force` on the next `start_countdown` (`start_countdown.py:299-305`) — the clutter `stop_countdown` exists to avoid. Landing before `countdown_time` violates `models.py:89-97` outright, and the resulting row is worse than invalid: during the banner phase it produces a countdown that announces a closure and then never closes, because at `countdown_time` the middleware finds `is_expired()` and `is_maintenance_finished()` both true and passes the request straight through (`middleware.py:52-54`). |
 
 The finished-window guard is the reason `extend_countdown --at-least` cannot
 re-close a site behind the operator's back: a stale heartbeat firing after the
@@ -353,9 +439,18 @@ actually down — the object can no longer pass `full_clean()` at all, no matter
 what is being changed.
 
 That is precisely the state in which `extend_countdown --service` is most likely
-to be run. So these commands must not call `full_clean()`. They validate
-explicitly via the guards above, which reproduce both invariants `clean()`
-enforces, and then persist with:
+to be run. So these commands must not call `full_clean()`.
+
+Skipping the model's validation means the guards above are the *only* thing
+standing between an operator and a corrupt row, so they have to cover both
+invariants `clean()` enforces — `countdown_time` in the future, and
+`maintenance_until` strictly after `countdown_time` — for every mode that can
+move either boundary. An earlier draft covered the first and missed the second on
+the `shorten --service` path; the guard table above now states each one against
+the mode that can break it. Any future mode must extend that table before it
+ships, because there is no second line of defence.
+
+The commands persist with:
 
 ```python
 countdown.save(update_fields=["countdown_time", "maintenance_until", "updated_at"])
@@ -563,10 +658,26 @@ patching `is_interactive` / `ask`.
 **Time control.** There is no `freezegun` or `time-machine` in the test extras
 (`pyproject.toml:37-42`), and none is added. Past-state rows are constructed
 directly with `objects.create()`, which never calls `clean()` and so accepts
-timestamps the admin would reject. Where a test needs time to *pass*, it patches
-`django.utils.timezone.now` via `mocker`: every module reaches it through the
-`timezone` module attribute rather than a `from … import now`, so one patch covers
-the model, the middleware and the commands at once.
+timestamps the admin would reject.
+
+Where a test needs time to *pass*, it patches `django.utils.timezone.now` via
+`mocker`. `models.py` and the commands all reach it through the `timezone` module
+attribute rather than `from … import now`, so a single patch covers them;
+`middleware.py` never calls it directly and inherits the same clock through the
+model's methods.
+
+Patch it with a **mutable cell**, not a `side_effect` list:
+
+```python
+clock = {"now": base}
+mocker.patch("django.utils.timezone.now", lambda: clock["now"])
+# ...advance clock["now"] from inside the mocked `ask`, mid-prompt
+```
+
+A fixed sequence of return values is too brittle here: `auto_now` and the
+repeated guard evaluations make the number of `now()` calls an implementation
+detail, and a test that encodes it breaks on every refactor without telling you
+anything true.
 
 **`stop_countdown`**
 
@@ -583,17 +694,29 @@ the model, the middleware and the commands at once.
 9. Output names the removed domains.
 10. Integration: middleware returns 503, `stop_countdown` runs, middleware returns
     200 for the same request.
+10b. `--noinput` on a non-TTY with two sites populated — both rows are deleted.
+    The wide default is the one decision here an operator could be surprised by,
+    so it gets an explicit test rather than being implied by cases 3 and 7.
+10c. An empty answer at the prompt aborts, because the default is no. Asserted
+    directly rather than inferred from case 8.
 
 **`extend_countdown` / `shorten_countdown`**
 
 11. `extend --service` on a running (expired, blocked) countdown — the case
     `full_clean()` would reject. The window moves and the row saves.
+11b. `extend --service` during the banner phase — the ordinary un-expired path,
+    which case 11 does not reach.
 12. `extend --banner` slides both boundaries and preserves window length.
 13. `shorten --banner` slides both boundaries the other way.
 14. `extend --banner` on an expired countdown — `CommandError`.
 15. `shorten --banner` past now — `CommandError`, row unchanged.
 16. `--service` on an indefinite countdown — `CommandError` for both commands.
 17. `shorten --service` landing at or before now — `CommandError`.
+17b. **`shorten --service` during the banner phase, landing between now and
+    `countdown_time`** — `CommandError`. Without this guard the row would pass
+    `clean()`'s first invariant and break its second, producing a countdown that
+    announces a closure and then never closes (`middleware.py:52-54`). Assert the
+    row is unchanged, and assert the middleware still blocks at `countdown_time`.
 18. `--service` and `--at-least` on a finished window — `CommandError`; the row is
     not resurrected and the site stays open.
 19. No mode flag, and two mode flags together — `CommandError`.
@@ -601,9 +724,19 @@ the model, the middleware and the commands at once.
     `updated_at` does not move.
 21. `--at-least` when the window ends sooner — `maintenance_until` becomes
     `now + D`, and `countdown_time` is untouched.
-22. `--at-least` twice in a row leaves the same state as once, modulo clock
-    advance — the idempotence claim.
-23. `--at-least` on an indefinite window — exits `0`, writes nothing.
+22. `--at-least` twice under a **frozen** clock — the second run reports "already
+    covered", writes nothing, and leaves `updated_at` untouched. Frozen is the
+    only form of this claim that is falsifiable; under a moving clock the second
+    run is *supposed* to write, so "same state modulo clock advance" would assert
+    nothing.
+22b. `--at-least` at `t₀` then at `t₁ > t₀` leaves exactly the state a single run
+    at `t₁` would — the absorption property, and the one the heartbeat rests on.
+23. `--at-least` on an indefinite window — exits `0`, writes nothing, **and warns**
+    that the window never expires so nothing is being held.
+23b. `--at-least` on an empty target — exits `0`, not `CommandError`. This is what
+    lets the heartbeat recipe drop `|| true`, so it guards a documented promise.
+23c. `--at-least` binding during the banner phase with a finite window — the write
+    lands strictly after `countdown_time`, so the second invariant survives.
 24. `--at-least` on a site with no countdown — `CommandError` (the `|| true` case
     from the heartbeat recipe).
 25. Default scope is the current site: with countdowns on two sites and no flags,
@@ -633,6 +766,9 @@ the model, the middleware and the commands at once.
 38. A blocked site still exits `0`.
 39. `--json` parses and carries `phase`, `next_event`, `seconds_to_next`, with
     `null` for phases that have no next transition.
+39b. An `unscheduled` row serialises `countdown_time`, `next_event` and
+    `seconds_to_next` all as `null` — the row that has the most `null`s is the
+    one most likely to crash a naive formatter.
 40. `--site-id` limits the report, and combines with `--json`.
 41. The reported phase agrees with what the middleware does for the same row,
     parametrised over the phases, so the report cannot drift from behaviour.
