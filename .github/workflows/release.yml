@@ -1,0 +1,84 @@
+name: Release
+
+# Publishes to PyPI when a v* tag is pushed.
+#
+# Uses PyPI Trusted Publishing (OpenID Connect): GitHub mints a short-lived
+# token for this exact workflow, so no API token exists to leak or rotate.
+# One-time setup on PyPI — Manage project → Publishing → Add a new publisher:
+#
+#   Owner:            iplweb
+#   Repository:       django-countdown
+#   Workflow name:    release.yml
+#   Environment name: pypi
+#
+# The tag must match the version in pyproject.toml; the job refuses to publish
+# otherwise, because a mismatch means one of the two is a mistake and there is
+# no way to take a release back off PyPI.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Refuse to publish a tag that disagrees with pyproject.toml
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          PROJECT_VERSION=$(uv run python -c \
+            "import tomllib,pathlib; \
+             print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [ "v${PROJECT_VERSION}" != "$TAG" ]; then
+            echo "Tag $TAG does not match pyproject.toml version $PROJECT_VERSION" >&2
+            exit 1
+          fi
+          echo "Publishing ${PROJECT_VERSION} as $TAG"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run the test suite
+        run: uv run pytest -q
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # A protected environment gives you a manual approval gate on PyPI pushes,
+    # and is what the trusted publisher on PyPI is scoped to.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/django-countdown
+    permissions:
+      # Required for trusted publishing: this is what lets GitHub mint the
+      # OIDC token PyPI exchanges for an upload credential.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

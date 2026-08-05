@@ -169,3 +169,27 @@ def test_command_refuses_to_overwrite_without_force_in_noinput():
             "+5m",
             "--noinput",
         )
+
+
+@pytest.mark.django_db
+def test_indefinite_mode_points_at_stop_countdown():
+    """Indefinite mode is the one state with no automatic way out, so the advice
+    it gives has to name the command that provides one — not the admin and a
+    shell one-liner, which was the only escape before `stop_countdown` existed."""
+    out = StringIO()
+
+    call_command(
+        "start_countdown",
+        "--banner",
+        "+5m",
+        "--service",
+        "indefinite",
+        "--message",
+        "Big upgrade",
+        "--noinput",
+        stdout=out,
+    )
+
+    rendered = out.getvalue()
+    assert "stop_countdown" in rendered
+    assert "manage.py shell" not in rendered

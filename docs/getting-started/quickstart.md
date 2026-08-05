@@ -84,7 +84,7 @@ Leave the end open when you cannot predict how long the work will take:
 ```console
 $ ./manage.py start_countdown --banner +1m --service indefinite --noinput
 ✓ Created countdown for example.com.
-  ⚠  Indefinite mode — remove the countdown via admin or `manage.py shell` to unblock the site.
+  ⚠  Indefinite mode — the site will not reopen on its own. Run `manage.py stop_countdown` to unblock it.
 ```
 
 Nothing reopens the site on its own in this mode. The maintenance page tells
@@ -96,24 +96,40 @@ comes back for them as soon as you unblock it.
 Deleting the countdown row is the universal "unblock now" action, whatever
 state the window is in:
 
+=== "Command"
+
+    ```console
+    $ ./manage.py stop_countdown --noinput
+    About to remove 1 countdown(s):
+      example.com  [banner showing]  2026-08-05 03:50:49 CDT  — Emergency maintenance
+
+    ✓ Removed 1 countdown(s).
+      example.com — unblocked
+    ```
+
+    It always lists what it is about to remove, and asks first unless you pass
+    `--noinput`. Add `--site-id N` on a multi-tenant install; without it every
+    site's countdown goes.
+
 === "Admin"
 
     **Site shutdown countdowns** → select the row → **Delete selected**.
 
-=== "Shell"
+    The admin stays reachable while the site is blocked, so this works even
+    when you cannot get a shell.
+
+!!! warning "Editing an expired countdown fails validation *in the admin*"
+
+    `SiteCountdown.clean()` rejects any `countdown_time` in the past, so once a
+    window has opened you cannot save the form again from the admin — even to
+    push the end time out.
+
+    Use the command instead; it validates against explicit guards rather than
+    the model form:
 
     ```console
-    $ ./manage.py shell -c "
-    from django_countdown.models import SiteCountdown
-    SiteCountdown.objects.all().delete()
-    "
+    $ ./manage.py extend_countdown --service +30m
     ```
-
-!!! warning "Editing an expired countdown fails validation"
-
-    `SiteCountdown.clean()` rejects any `countdown_time` in the past, so
-    once a window has opened you cannot save the form again from the admin —
-    even to push the end time out. Delete the row and create a new one.
 
 ## Try it without touching your project
 

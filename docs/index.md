@@ -21,6 +21,16 @@ $ ./manage.py start_countdown --banner +15m --service +30m \
 ✓ Created countdown for example.com.
 ```
 
+There is a command for every other verb too — because the moment you need them,
+the site is usually already closed and the plan is already slipping:
+
+```console
+$ ./manage.py show_countdown       # which phase, and how long left?
+$ ./manage.py extend_countdown     # it is taking longer than planned
+$ ./manage.py shorten_countdown    # it is going faster
+$ ./manage.py stop_countdown       # done — reopen the site
+```
+
 ## Why it exists
 
 Planned downtime is the worst kind of downtime to communicate badly. Users
@@ -72,7 +82,8 @@ during it turns an incident into a non-event.
 | See a countdown running in three minutes | [Quickstart](getting-started/quickstart.md) |
 | Understand who sees what, and when | [How it works](guide/how-it-works.md) |
 | Restyle the maintenance page | [Blocked page](guide/blocked-page.md) |
-| Script downtime from CI or a deploy hook | [Management command](guide/management-command.md) |
+| Script downtime from CI or a deploy hook | [Scheduling a countdown](guide/management-command.md) |
+| Check on, adjust or end a window already running | [Managing a running countdown](guide/managing-a-countdown.md) |
 | Look up a field, setting or template block | [Reference](reference/settings.md) |
 
 ## Requirements

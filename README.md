@@ -34,8 +34,14 @@ while leaving operators unblocked so they can actually finish the work.
   a live countdown to recovery.
 - **Per-Site configuration** — uses Django's `sites` framework, so each
   domain in a multi-tenant setup has its own independent countdown.
-- **Admin integration** — full Django admin support, plus a
-  `start_countdown` management command for scripted downtime.
+- **A command per verb** — `start_countdown` schedules a window,
+  `show_countdown` reports where it stands (with `--json` for monitoring),
+  `extend_countdown` and `shorten_countdown` move its boundaries when the plan
+  slips, and `stop_countdown` reopens the site.
+- **Dead man's switch** — `extend_countdown --at-least 5m` raises a floor
+  rather than adding time, so a deploy loop can hold the site closed while it
+  works and let it reopen by itself if the deploy dies.
+- **Admin integration** — full Django admin support alongside the commands.
 
 ## Supported versions
 
@@ -95,8 +101,9 @@ Full walkthrough:
 ```
 
 Banner shows for 15 minutes, then the site returns 503 for 30 minutes, then
-reopens by itself. Use `--service indefinite` to stay closed until you delete
-the countdown. See
+reopens by itself. Check on it with `./manage.py show_countdown`, and reopen
+early with `./manage.py stop_countdown`. Use `--service indefinite` to stay
+closed until you do. See
 [Quickstart](https://iplweb.github.io/django-countdown/getting-started/quickstart/).
 
 A working end-to-end example lives under [`example/`](./example/).
@@ -108,7 +115,8 @@ A working end-to-end example lives under [`example/`](./example/).
 | [How it works](https://iplweb.github.io/django-countdown/guide/how-it-works/) | The state machine, who sees what, failure behaviour |
 | [Countdown banner](https://iplweb.github.io/django-countdown/guide/banner/) | Including, styling and overriding the banner |
 | [Blocked page](https://iplweb.github.io/django-countdown/guide/blocked-page/) | Three shipped variants and how to write your own |
-| [Management command](https://iplweb.github.io/django-countdown/guide/management-command/) | Every option of `start_countdown` |
+| [Scheduling a countdown](https://iplweb.github.io/django-countdown/guide/management-command/) | Every option of `start_countdown` |
+| [Managing a running countdown](https://iplweb.github.io/django-countdown/guide/managing-a-countdown/) | `show`, `stop`, `extend`, `shorten`, and the deploy patterns |
 | [Multi-site setup](https://iplweb.github.io/django-countdown/guide/multisite/) | One countdown per domain |
 | [Reference](https://iplweb.github.io/django-countdown/reference/settings/) | Settings, model, template context, template blocks |
 

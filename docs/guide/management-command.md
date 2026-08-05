@@ -1,8 +1,11 @@
-# Management command
+# Scheduling a countdown
 
 `start_countdown` creates or replaces the countdown for one site. It is the
 scriptable path into the package — the thing you put in a deploy hook, a
 Makefile target or an on-call runbook.
+
+Once a window exists, [Managing a running countdown](managing-a-countdown.md)
+covers inspecting it, moving its boundaries, and ending it.
 
 ```console
 $ ./manage.py start_countdown [options]
@@ -149,38 +152,47 @@ alone is the safer choice when a second run should be treated as a mistake.
 
 ## Clearing a countdown
 
-There is no `stop_countdown`. Deleting the row is the unblock action:
-
 ```console
-$ ./manage.py shell -c "
-from django_countdown.models import SiteCountdown
-SiteCountdown.objects.filter(site_id=1).delete()
-"
+$ ./manage.py stop_countdown --site-id 1
 ```
 
-Or delete it from the admin, which is reachable even while the site is
-blocked. In indefinite mode this is the *only* way back.
+Deleting the row is the unblock action, and in indefinite mode it is the only
+way back. The admin works too and stays reachable while the site is blocked. See
+[Reopening](managing-a-countdown.md#reopening-stop_countdown) for the details —
+including the fact that `stop_countdown` with no arguments sweeps every site.
 
 ## Automating around the window
 
-Because the command is idempotent per site and takes relative durations, a
-deploy script can bracket itself:
+A deploy script can bracket itself. The safest shape depends on which failure you
+would rather have, and the choice is worth making deliberately:
 
 ```bash title="deploy.sh"
 set -euo pipefail
 
-./manage.py start_countdown --banner +10m --service indefinite \
-    --message "Deploying" --noinput --force
+./manage.py start_countdown --banner +10m --service +15m \
+    --message "Deploying" --noinput --force --site-id "$SITE"
 sleep 600                       # let the banner do its job
 
-./deploy-the-thing.sh
+./deploy-the-thing.sh &
+DEPLOY=$!
 
-./manage.py shell -c "
-from django_countdown.models import SiteCountdown
-SiteCountdown.objects.all().delete()
-"
+# hold the window open only while the deploy is actually alive
+while kill -0 "$DEPLOY" 2>/dev/null; do
+    ./manage.py extend_countdown --at-least 5m --site-id "$SITE" --noinput \
+        || alert "countdown protection lapsed"
+    sleep 60
+done
+
+./manage.py stop_countdown --site-id "$SITE" --noinput
 ```
 
-Indefinite mode plus an explicit delete at the end is safer than a fixed
-`--service` window: if the deploy overruns, the site stays honestly closed
-instead of reopening onto a half-migrated database.
+`--at-least` is the mode to use in a loop: it raises a floor rather than adding
+time, so a retry can never overshoot. If the deploy dies, nothing renews the
+floor and the site reopens on its own five minutes later.
+
+The older pattern — `--service indefinite` plus an explicit `stop_countdown` at
+the end — trades the opposite way: nothing reopens the site until you say so, but
+a deploy that dies silently leaves it closed indefinitely.
+
+[Which deploy pattern](managing-a-countdown.md#which-deploy-pattern) lays the two
+side by side. Neither is the default answer.
