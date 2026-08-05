@@ -17,6 +17,9 @@ venv/
 .vscode/
 *.swp
 
+# Docs (mkdocs build output)
+site/
+
 # Testing
 .pytest_cache/
 .coverage
@@ -56,3 +59,6 @@ service-account*.json
 ._*
 Thumbs.db
 desktop.ini
+
+# Claude Code harness-managed worktrees
+.claude/worktrees/

@@ -1,6 +1,7 @@
 # django-countdown
 
 [![Tests](https://github.com/iplweb/django-countdown/actions/workflows/tests.yml/badge.svg)](https://github.com/iplweb/django-countdown/actions/workflows/tests.yml)
+[![Docs](https://github.com/iplweb/django-countdown/actions/workflows/docs.yml/badge.svg)](https://iplweb.github.io/django-countdown/)
 [![Python Version](https://img.shields.io/pypi/pyversions/django-countdown.svg)](https://pypi.org/project/django-countdown/)
 [![PyPI Version](https://img.shields.io/pypi/v/django-countdown.svg)](https://pypi.org/project/django-countdown/)
 [![License](https://img.shields.io/pypi/l/django-countdown.svg)](LICENSE)
@@ -8,6 +9,8 @@
 Display a maintenance countdown banner across a Django site, then block public
 access (returning HTTP 503) when the countdown expires. Superusers retain
 access during maintenance so they can finish the work and clear the countdown.
+
+**📖 Full documentation: <https://iplweb.github.io/django-countdown/>**
 
 ## Why?
 
@@ -31,38 +34,26 @@ while leaving operators unblocked so they can actually finish the work.
   a live countdown to recovery.
 - **Per-Site configuration** — uses Django's `sites` framework, so each
   domain in a multi-tenant setup has its own independent countdown.
-- **Admin integration** — full Django admin support with status colors and a
-  validator preventing past-dated countdowns.
+- **Admin integration** — full Django admin support, plus a
+  `start_countdown` management command for scripted downtime.
 
 ## Supported versions
-
-Authoritative upstream: <https://docs.djangoproject.com/en/dev/faq/install/#what-python-version-can-i-use-with-django>
 
 | Django  | 3.10 | 3.11 | 3.12 | 3.13 | 3.14 | Status                                  |
 |---------|------|------|------|------|------|-----------------------------------------|
 | 5.2 LTS | ✓    | ✓    | ✓    | ✓    | ✓    | Active LTS (extended support Apr 2028)  |
 | 6.0     | —    | —    | ✓    | ✓    | ✓    | Mainstream Aug 2026, extended Apr 2027  |
 
-8 cells in total are exercised by the CI matrix on every push.
+All 8 cells are exercised by the CI matrix on every push. Django is the only
+runtime dependency.
 
 ## Installation
 
-### Using uv (recommended)
-
 ```bash
-uv add django-countdown
+uv add django-countdown      # or: pip install django-countdown
 ```
 
-### Using pip
-
-```bash
-pip install django-countdown
-```
-
-### Project configuration
-
-Add to `INSTALLED_APPS` — the `django.contrib.sites` framework must also be
-installed:
+Add the app, the middleware and the context processor to your settings:
 
 ```python
 INSTALLED_APPS = [
@@ -70,102 +61,56 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "django_countdown",
 ]
-
 SITE_ID = 1
-```
 
-Add the blocking middleware **after** Django's auth middleware (it needs
-`request.user`):
-
-```python
 MIDDLEWARE = [
     # ...
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django_countdown.middleware.CountdownBlockingMiddleware",
 ]
-```
 
-Add the context processor so the banner partials see the active countdown:
-
-```python
-TEMPLATES = [
-    {
+TEMPLATES = [{
+    # ...
+    "OPTIONS": {"context_processors": [
         # ...
-        "OPTIONS": {
-            "context_processors": [
-                # ...
-                "django_countdown.context_processors.countdown_context",
-            ],
-        },
-    },
-]
+        "django_countdown.context_processors.countdown_context",
+    ]},
+}]
 ```
 
-Run migrations:
-
-```bash
-./manage.py migrate
-```
-
-## Quick start
-
-Create a `SiteCountdown` row (one per `django.contrib.sites.Site`) via the
-Django admin, providing:
-
-- `countdown_time` — when access starts being blocked.
-- `maintenance_until` (optional) — when public access resumes.
-- `message` — short banner headline (max 200 chars).
-- `long_description` (optional) — extended copy shown on the blocked page.
-
-The package exposes two template partials you can `{% include %}` from your
-own base layout:
+Then `./manage.py migrate`, and include the banner in your base template:
 
 ```django
 {% include "django_countdown/countdown_banner.html" %}
 ```
 
-Renders a banner before the countdown expires; switches to a subdued
-"maintenance in progress" banner for superusers after expiry until
-`maintenance_until` passes. Two context variables are populated by the
-context processor: `active_countdown` (pre-maintenance) and
-`maintenance_countdown` (during maintenance, superusers only).
+Full walkthrough:
+[Installation](https://iplweb.github.io/django-countdown/getting-started/installation/).
 
-The middleware automatically serves `django_countdown/blocked.html` for
-non-superuser requests once the countdown has expired and maintenance is
-ongoing.
+## Quick start
 
-A working end-to-end example lives under [`example/`](./example/) — start
-there if you want to see the package wired up in a minimal Django project.
-
-## Blocked-page variants
-
-Three blocked-page templates ship with the package; pick one via
-`DJANGO_COUNTDOWN_BLOCKED_TEMPLATE` in your settings:
-
-| Template                                       | Requirements                            |
-|------------------------------------------------|-----------------------------------------|
-| `django_countdown/blocked.html` *(default)*    | None — ships its own CSS                |
-| `django_countdown/blocked_foundation.html`     | Foundation Sites + foundation-icons CSS |
-| `django_countdown/blocked_bootstrap.html`      | Bootstrap 5 (loaded from CDN)           |
-
-```python
-# settings.py
-DJANGO_COUNTDOWN_BLOCKED_TEMPLATE = "django_countdown/blocked_bootstrap.html"
+```bash
+./manage.py start_countdown --banner +15m --service +30m \
+    --message "Database upgrade" --noinput
 ```
 
-All three inherit from `django_countdown/blocked_base.html`, which exposes a
-`{% block blocked_stylesheets %}` you can override in your own subclass if
-you need a different framework.
+Banner shows for 15 minutes, then the site returns 503 for 30 minutes, then
+reopens by itself. Use `--service indefinite` to stay closed until you delete
+the countdown. See
+[Quickstart](https://iplweb.github.io/django-countdown/getting-started/quickstart/).
 
-`countdown_banner.html` ships its own stylesheet via `{% static %}` and has
-**no external Python dependencies** beyond Django itself (no
-`django-compressor`, no `django-sass-processor`).
+A working end-to-end example lives under [`example/`](./example/).
 
-## Configuration
+## Documentation
 
-The package does not require any project-level Django settings. The middleware
-exempts `/admin/`, `/static/`, and `/media/` URL prefixes from blocking by
-default.
+| | |
+|---|---|
+| [How it works](https://iplweb.github.io/django-countdown/guide/how-it-works/) | The state machine, who sees what, failure behaviour |
+| [Countdown banner](https://iplweb.github.io/django-countdown/guide/banner/) | Including, styling and overriding the banner |
+| [Blocked page](https://iplweb.github.io/django-countdown/guide/blocked-page/) | Three shipped variants and how to write your own |
+| [Management command](https://iplweb.github.io/django-countdown/guide/management-command/) | Every option of `start_countdown` |
+| [Multi-site setup](https://iplweb.github.io/django-countdown/guide/multisite/) | One countdown per domain |
+| [Reference](https://iplweb.github.io/django-countdown/reference/settings/) | Settings, model, template context, template blocks |
 
 ## Development
 
@@ -175,6 +120,9 @@ cd django-countdown
 uv sync --all-extras
 uv run pytest
 ```
+
+See
+[Contributing](https://iplweb.github.io/django-countdown/contributing/).
 
 ## License
 
