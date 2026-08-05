@@ -11,6 +11,7 @@ from datetime import datetime
 
 from django.contrib.sites.models import Site
 from django.core.management.base import CommandError
+from django.db import transaction
 from django.utils import timezone
 
 from django_countdown.models import SiteCountdown
@@ -81,6 +82,70 @@ def ask(prompt: str, default: str | None = None) -> str:
     except EOFError:
         return default or ""
     return raw.strip() or (default or "")
+
+
+class GuardViolation(Exception):
+    """One row cannot be changed as asked. Raised by a plan, collected by
+    :func:`apply_atomic`, and reported together with every other violation."""
+
+    def __init__(self, site: Site, message: str):
+        super().__init__(message)
+        self.site = site
+        self.message = message
+
+
+def apply_atomic(queryset, plan):
+    """Re-read, re-guard and write a batch of countdowns, or write none of them.
+
+    ``plan(countdown, now)`` returns a dict of fields to write, or ``None`` when
+    the row is already as asked and must not be touched. It raises
+    :class:`GuardViolation` to refuse a row.
+
+    The rows are re-read inside the transaction and the clock is sampled there
+    too, because a confirmation prompt may have sat open for minutes between the
+    preview and this call — long enough for a guard that passed to stop holding.
+    One clock serves the whole batch so two rows cannot disagree about now.
+
+    ``select_for_update`` also protects against a concurrent writer, but only on
+    backends that implement it: SQLite reports ``has_select_for_update = False``
+    and Django silently omits the clause, so no concurrency guarantee may be
+    claimed there.
+
+    Returns the list of ``(countdown, written_fields)`` that changed.
+    """
+    written = []
+
+    with transaction.atomic():
+        rows = list(queryset.select_for_update().select_related("site"))
+        now = timezone.now()
+
+        planned = []
+        violations = []
+        for row in rows:
+            try:
+                fields = plan(row, now)
+            except GuardViolation as exc:
+                violations.append(exc)
+                continue
+            planned.append((row, fields))
+
+        if violations:
+            # Report every offending site, so fixing them does not take one run
+            # per problem.
+            detail = "; ".join(f"{v.site.domain}: {v.message}" for v in violations)
+            raise CommandError(f"Refusing to change anything — {detail}")
+
+        for row, fields in planned:
+            if not fields:
+                continue
+            for name, value in fields.items():
+                setattr(row, name, value)
+            # updated_at is auto_now, and Django writes only the named columns
+            # when update_fields is given, so it has to be listed explicitly.
+            row.save(update_fields=[*fields, "updated_at"])
+            written.append((row, fields))
+
+    return written
 
 
 def add_target_arguments(parser, *, allow_all: bool) -> None:
