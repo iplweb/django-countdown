@@ -23,6 +23,16 @@ PHASE_BLOCKED_INDEFINITE = "blocked_indefinite"
 PHASE_FINISHED = "finished"
 PHASE_BLOCKED = "blocked"
 
+# Human wording for the same phases. Lives here rather than in one command so
+# that two commands describing the same row cannot describe it differently.
+PHASE_LABELS = {
+    PHASE_UNSCHEDULED: "unscheduled",
+    PHASE_BANNER: "banner showing",
+    PHASE_BLOCKED_INDEFINITE: "blocked — indefinite maintenance",
+    PHASE_FINISHED: "finished",
+    PHASE_BLOCKED: "blocked — maintenance running",
+}
+
 
 def classify(countdown: SiteCountdown, now: datetime | None = None) -> str:
     """Return the phase a countdown is in, as one of the ``PHASE_*`` constants.
@@ -112,17 +122,24 @@ def resolve_targets(options, *, default_all: bool):
 def confirm(*, noinput: bool, prompt: str) -> bool:
     """Ask permission to proceed, defaulting to no.
 
-    Refuses to assume consent when there is nobody to ask: a non-TTY run without
-    ``--noinput`` is an error naming the flag that would have made the intent
-    explicit.
+    Pass a plain question — the ``[y/N]`` hint is appended here, so callers never
+    have to know that spelling it themselves would collide with the default
+    ``ask`` renders.
+
+    Refuses to assume consent when there is nobody to ask: a run without a
+    terminal and without ``--noinput`` is an error naming the flag that would
+    have made the intent explicit.
     """
     if noinput:
         return True
     if not is_interactive():
         raise CommandError(
-            "stdin is not a TTY — pass --noinput to proceed without confirmation."
+            "no terminal attached (stdin and stdout must both be a TTY) — "
+            "pass --noinput to proceed without confirmation."
         )
-    return ask(prompt, "N").strip().lower() in {"y", "yes"}
+    # default=None so ask() renders no bracket of its own; an empty answer comes
+    # back as "" and falls through to False, which is the intended default.
+    return ask(f"{prompt} [y/N]", None).strip().lower() in {"y", "yes"}
 
 
 def resolve_site(site_id: int | None) -> Site:

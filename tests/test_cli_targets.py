@@ -78,12 +78,43 @@ def test_confirm_short_circuits_under_noinput(mocker):
     interactive.assert_not_called()
 
 
-def test_confirm_refuses_to_guess_when_stdin_is_not_a_tty(mocker):
+def test_confirm_refuses_to_guess_without_a_terminal(mocker):
     mocker.patch(
         "django_countdown.management.commands._cli.is_interactive", return_value=False
     )
     with pytest.raises(CommandError, match="--noinput"):
         confirm(noinput=False, prompt="Remove 1 countdown?")
+
+
+def test_confirm_blames_the_terminal_not_just_stdin(mocker):
+    """``is_interactive`` gates on stdin AND stdout, so a live terminal with a
+    redirected stdout also lands here. Blaming stdin alone sends the operator
+    looking at the wrong end of the pipe."""
+    mocker.patch(
+        "django_countdown.management.commands._cli.is_interactive", return_value=False
+    )
+    with pytest.raises(CommandError) as excinfo:
+        confirm(noinput=False, prompt="Remove 1 countdown?")
+    assert "stdout" in str(excinfo.value)
+
+
+def test_confirm_renders_the_yes_no_hint_itself(mocker):
+    """Callers must be able to pass a plain question. If they had to append
+    ``[y/N]`` themselves it would collide with the default ``ask`` appends,
+    rendering ``… [y/N] [N]:``."""
+    mocker.patch(
+        "django_countdown.management.commands._cli.is_interactive", return_value=True
+    )
+    asked = mocker.patch(
+        "django_countdown.management.commands._cli.ask", return_value="y"
+    )
+    confirm(noinput=False, prompt="Remove 1 countdown?")
+
+    rendered = asked.call_args.args[0]
+    assert rendered.count("[y/N]") == 1
+    assert "[N]" not in rendered.replace("[y/N]", "")
+    # ask() must not append a second hint of its own.
+    assert asked.call_args.args[1] is None
 
 
 @pytest.mark.parametrize(
@@ -92,6 +123,7 @@ def test_confirm_refuses_to_guess_when_stdin_is_not_a_tty(mocker):
         ("y", True),
         ("Y", True),
         ("yes", True),
+        ("YES", True),
         ("", False),
         ("n", False),
         ("nope", False),
@@ -102,6 +134,6 @@ def test_confirm_defaults_to_no(mocker, answer, expected):
         "django_countdown.management.commands._cli.is_interactive", return_value=True
     )
     mocker.patch(
-        "django_countdown.management.commands._cli.ask", return_value=answer or "N"
+        "django_countdown.management.commands._cli.ask", return_value=answer
     )
     assert confirm(noinput=False, prompt="Remove 1 countdown?") is expected

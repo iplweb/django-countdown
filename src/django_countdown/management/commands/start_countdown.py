@@ -1,8 +1,8 @@
 """``manage.py start_countdown`` — schedule a maintenance window.
 
 Interactive by default; pass ``--banner``/``--service``/``--message`` to skip
-prompts. Service mode can be ``indefinite`` to keep the site blocked until an
-admin removes the countdown.
+prompts. Service mode can be ``indefinite`` to keep the site blocked until
+``stop_countdown`` removes the countdown.
 
 Examples::
 
@@ -332,7 +332,7 @@ class Command(BaseCommand):
         if maintenance_until is None:
             self.stdout.write(
                 self.style.WARNING(
-                    "  ⚠  Indefinite mode — remove the countdown via admin "
-                    "or `manage.py shell` to unblock the site."
+                    "  ⚠  Indefinite mode — the site will not reopen on its own. "
+                    "Run `manage.py stop_countdown` to unblock it."
                 )
             )
