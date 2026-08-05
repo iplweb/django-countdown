@@ -5,6 +5,8 @@ from django.utils import timezone
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from .utils import format_duration
+
 
 class SiteCountdown(models.Model):
     """Maintenance countdown attached to a single :class:`Site`."""
@@ -104,21 +106,7 @@ class SiteCountdown(models.Model):
             return gettext("Expired")
 
         delta = self.countdown_time - timezone.now()
-        days = delta.days
-        hours, remainder = divmod(delta.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-
-        parts = []
-        if days > 0:
-            parts.append(gettext("%(n)d days") % {"n": days})
-        if hours > 0:
-            parts.append(gettext("%(n)d h") % {"n": hours})
-        if minutes > 0:
-            parts.append(gettext("%(n)d min") % {"n": minutes})
-        if seconds > 0 or not parts:
-            parts.append(gettext("%(n)d sec") % {"n": seconds})
-
-        return " ".join(parts)
+        return format_duration(delta.total_seconds())
 
     time_remaining.short_description = _("Time remaining")
 

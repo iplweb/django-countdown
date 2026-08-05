@@ -14,15 +14,15 @@ Examples::
 from __future__ import annotations
 
 import re
-import sys
 from datetime import datetime, timedelta
 
-from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from django_countdown.models import SiteCountdown
+
+from ._cli import ask, format_when, is_interactive, resolve_site
 
 INDEFINITE_TOKENS = {"indefinite", "indefinitely", "forever", "inf", "infinite"}
 
@@ -95,10 +95,6 @@ def parse_service(text: str) -> timedelta | None:
     return parse_relative(text)
 
 
-def format_when(dt: datetime) -> str:
-    return timezone.localtime(dt).strftime("%Y-%m-%d %H:%M:%S %Z").strip()
-
-
 class Command(BaseCommand):
     help = (
         "Start a maintenance countdown for the current site. Interactive by "
@@ -150,21 +146,6 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------ helpers
 
-    def _interactive(self) -> bool:
-        return sys.stdin.isatty() and sys.stdout.isatty()
-
-    def _ask(self, prompt: str, default: str | None = None) -> str:
-        if default is not None:
-            shown = f"{prompt} [{default}]: "
-        else:
-            shown = f"{prompt}: "
-        try:
-            raw = input(shown)
-        except EOFError:
-            return default or ""
-        raw = raw.strip()
-        return raw or (default or "")
-
     def _ask_banner(self) -> timedelta | datetime:
         self.stdout.write(
             self.style.MIGRATE_HEADING(
@@ -175,7 +156,7 @@ class Command(BaseCommand):
             "  Suggestions: +5m, +30m, +1h, +1d  (or an ISO datetime)"
         )
         while True:
-            raw = self._ask("Banner duration", DEFAULT_BANNER)
+            raw = ask("Banner duration", DEFAULT_BANNER)
             try:
                 if "T" in raw or "-" in raw[:5]:
                     dt = parse_when(raw)
@@ -196,7 +177,7 @@ class Command(BaseCommand):
             "(site stays blocked until you remove the countdown)"
         )
         while True:
-            raw = self._ask("Service duration", DEFAULT_SERVICE)
+            raw = ask("Service duration", DEFAULT_SERVICE)
             try:
                 return parse_service(raw)
             except ValueError as exc:
@@ -204,22 +185,8 @@ class Command(BaseCommand):
 
     def _ask_message(self) -> str:
         self.stdout.write("")
-        msg = self._ask("Short banner message", DEFAULT_MESSAGE)
+        msg = ask("Short banner message", DEFAULT_MESSAGE)
         return msg or DEFAULT_MESSAGE
-
-    def _resolve_site(self, site_id: int | None) -> Site:
-        if site_id is not None:
-            try:
-                return Site.objects.get(pk=site_id)
-            except Site.DoesNotExist as exc:
-                raise CommandError(f"Site with id={site_id} does not exist") from exc
-        try:
-            return Site.objects.get_current()
-        except Site.DoesNotExist as exc:
-            raise CommandError(
-                "No current Site — set SITE_ID and run `migrate sites`, "
-                "or pass --site-id."
-            ) from exc
 
     # ----------------------------------------------------------------- handle
 
@@ -227,7 +194,7 @@ class Command(BaseCommand):
         noinput = options["noinput"]
         force = options["force"]
 
-        site = self._resolve_site(options.get("site_id"))
+        site = resolve_site(options.get("site_id"))
 
         # Resolve banner end (countdown_time)
         banner_raw = options.get("banner")
@@ -248,7 +215,7 @@ class Command(BaseCommand):
                 "Use e.g. --banner +5m."
             )
         else:
-            if not self._interactive():
+            if not is_interactive():
                 raise CommandError(
                     "stdin is not a TTY — pass --banner explicitly or use a TTY."
                 )
@@ -312,7 +279,7 @@ class Command(BaseCommand):
             self.stdout.write(f"  countdown_time   = {existing.countdown_time}")
             self.stdout.write(f"  maintenance_until = {existing.maintenance_until}")
             self.stdout.write(f"  message          = {existing.message}")
-            answer = self._ask("Replace it? [y/N]", "N").strip().lower()
+            answer = ask("Replace it? [y/N]", "N").strip().lower()
             if answer not in {"y", "yes"}:
                 self.stdout.write(self.style.NOTICE("Aborted."))
                 return
@@ -334,7 +301,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Message:           {message}")
 
         if not noinput and not force:
-            confirm = self._ask("Apply? [Y/n]", "Y").strip().lower()
+            confirm = ask("Apply? [Y/n]", "Y").strip().lower()
             if confirm in {"n", "no"}:
                 self.stdout.write(self.style.NOTICE("Aborted."))
                 return
