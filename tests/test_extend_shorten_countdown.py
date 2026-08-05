@@ -136,11 +136,18 @@ def test_extend_banner_on_an_indefinite_countdown_moves_only_the_banner():
 @pytest.mark.parametrize("command", ["extend_countdown", "shorten_countdown"])
 @pytest.mark.parametrize("mode", ["--banner", "--service"])
 def test_an_unscheduled_row_is_refused_in_every_mode(command, mode):
-    row = make_countdown(closes=None, reopens=None, message="Draft")
+    # A maintenance_until without a countdown_time is reachable through the
+    # admin, and it keeps the indefinite-window guard from covering for the
+    # unscheduled one on the --service path.
+    row = make_countdown(
+        closes=None, reopens=timezone.now() + 40 * MINUTE, message="Draft"
+    )
 
-    with pytest.raises(CommandError, match="start_countdown"):
+    with pytest.raises(CommandError) as excinfo:
         call_command(command, mode, "+5m", "--noinput")
 
+    assert "nothing is scheduled" in str(excinfo.value)
+    assert "start_countdown" in str(excinfo.value)
     row.refresh_from_db()
     assert row.countdown_time is None
 
@@ -148,10 +155,13 @@ def test_an_unscheduled_row_is_refused_in_every_mode(command, mode):
 @pytest.mark.django_db
 def test_at_least_on_an_unscheduled_row_is_refused():
     """``--at-least`` forgives an *empty* target, not a row with no schedule."""
-    make_countdown(closes=None, reopens=None, message="Draft")
+    make_countdown(closes=None, reopens=timezone.now() + 40 * MINUTE, message="Draft")
 
-    with pytest.raises(CommandError, match="start_countdown"):
+    with pytest.raises(CommandError) as excinfo:
         call_command("extend_countdown", "--at-least", "5m", "--noinput")
+
+    assert "nothing is scheduled" in str(excinfo.value)
+    assert "start_countdown" in str(excinfo.value)
 
 
 @pytest.mark.django_db

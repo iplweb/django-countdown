@@ -94,6 +94,16 @@ class GuardViolation(Exception):
         self.message = message
 
 
+def refusal(violations) -> CommandError:
+    """Build the all-or-nothing refusal naming every offending site.
+
+    Guards run twice — once for the preview, once inside the transaction — and
+    both phases report through here so their wording cannot drift apart.
+    """
+    detail = "; ".join(f"{v.site.domain}: {v.message}" for v in violations)
+    return CommandError(f"Refusing to change anything — {detail}")
+
+
 def apply_atomic(queryset, plan):
     """Re-read, re-guard and write a batch of countdowns, or write none of them.
 
@@ -132,8 +142,7 @@ def apply_atomic(queryset, plan):
         if violations:
             # Report every offending site, so fixing them does not take one run
             # per problem.
-            detail = "; ".join(f"{v.site.domain}: {v.message}" for v in violations)
-            raise CommandError(f"Refusing to change anything — {detail}")
+            raise refusal(violations)
 
         for row, fields in planned:
             if not fields:

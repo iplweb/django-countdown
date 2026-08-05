@@ -151,10 +151,17 @@ The one you will reach for while already down is `--service`:
 ```console
 $ ./manage.py extend_countdown --service +20m
 example.com  blocked — maintenance running
-  reopens  03:23:34 → 03:43:34 CDT
+  reopens  2026-08-05 03:45:13 CDT → 2026-08-05 04:05:13 CDT
 
 Apply to 1 countdown(s)? [y/N]: y
+
+✓ Extended 1 countdown(s).
+  example.com — reopens 2026-08-05 04:05:13 CDT
 ```
+
+Every run previews `before → after` and asks before writing. `--noinput` skips
+the question; without a terminal and without that flag the command refuses rather
+than guessing.
 
 !!! info "Why two commands instead of one signed duration"
 
@@ -212,10 +219,21 @@ reopens by itself.
     traffic mid-deploy" both become silence — and the second one is worth waking
     someone for.
 
-Against an indefinite window `--at-least` writes nothing and warns: "never ends"
-does satisfy "ends no sooner than five minutes from now", but the guarantee you
-wanted is absent, and a dead man's switch cannot fire against a window that never
-expires.
+Against an indefinite window `--at-least` writes nothing and warns:
+
+```console
+$ ./manage.py extend_countdown --at-least 5m --noinput
+example.com  banner showing
+  unchanged  the window is indefinite
+  ⚠  this window never expires, so nothing is being held: the site will not reopen on its own. Run stop_countdown when the work is done.
+
+✓ Nothing to change.
+```
+
+"Never ends" does satisfy "ends no sooner than five minutes from now", so this is
+a success rather than an error. But the guarantee you wanted is absent — a dead
+man's switch cannot fire against a window that never expires — and silence here
+would read as protection.
 
 ## Which deploy pattern
 
