@@ -100,8 +100,14 @@ Model validation, run by `full_clean()` and therefore by the admin and by
 
     Once `countdown_time` is in the past, the row can no longer be saved
     through validated paths — the admin form rejects it even if you only
-    touched `maintenance_until`. Delete and recreate, or use
-    `QuerySet.update()` to bypass validation. See
+    touched `maintenance_until`.
+
+    This is why `extend_countdown` and `shorten_countdown` do not call
+    `full_clean()`. They check both invariants above explicitly instead, against
+    the specific boundary each mode moves, and then save with `update_fields`.
+    That is what lets them adjust a window that is already running, which is the
+    state you actually need them in. See
+    [Managing a running countdown](../guide/managing-a-countdown.md) and
     [Django admin](../guide/admin.md#validation-rules).
 
 ### `__str__()`
