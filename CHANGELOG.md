@@ -22,7 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   moves them.
 - `setup-uv`'s cache key was never invalidated: it globs for `uv.lock`, which
   this repository gitignores (a library pins nothing), so the file never reached
-  the runner and nothing ever matched. Keyed on `pyproject.toml` instead.
+  the runner and nothing ever matched. Keyed on `pyproject.toml` instead, with a
+  per-job `cache-suffix`. The suffix is not cosmetic: `setup-uv` runs before
+  `uv python install`, so its key carries the *runner's* Python rather than the
+  matrix one, and all eight matrix jobs would otherwise compute an identical key
+  and race to reserve it.
 
 ## [0.3.0] — 2026-08-05
 

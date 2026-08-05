@@ -38,6 +38,7 @@ jobs:
           # — which would leave the cache key frozen forever. Key on the file
           # that does ship and does change when dependencies change.
           cache-dependency-glob: "pyproject.toml"
+          cache-suffix: py${{ matrix.python-version }}-dj${{ matrix.django-version }}
 
       - name: Set up Python
         env:
@@ -68,6 +69,7 @@ jobs:
           # — which would leave the cache key frozen forever. Key on the file
           # that does ship and does change when dependencies change.
           cache-dependency-glob: "pyproject.toml"
+          cache-suffix: lint
 
       - name: Set up Python
         run: uv python install 3.13
@@ -95,6 +97,7 @@ jobs:
           # — which would leave the cache key frozen forever. Key on the file
           # that does ship and does change when dependencies change.
           cache-dependency-glob: "pyproject.toml"
+          cache-suffix: example
 
       - name: Set up Python
         run: uv python install 3.13
