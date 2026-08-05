@@ -38,6 +38,7 @@ jobs:
           # — which would leave the cache key frozen forever. Key on the file
           # that does ship and does change when dependencies change.
           cache-dependency-glob: "pyproject.toml"
+          cache-suffix: release
 
       - name: Set up Python
         run: uv python install 3.13
