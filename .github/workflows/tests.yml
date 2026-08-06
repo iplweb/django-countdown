@@ -57,7 +57,7 @@ jobs:
           uv pip install "django~=${DJANGO_VER}.0"
 
       - name: Run tests
-        run: uv run pytest -v
+        run: uv run --no-sync pytest -v
 
   lint:
     runs-on: ubuntu-latest
