@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Support for Django 6.1, released 2026-08-05. The CI matrix gains
+  Django 6.1 on Python 3.12, 3.13 and 3.14 — 6.1 requires Python 3.12 or
+  newer, so the 3.10/3.11 cells stay 5.2-only. No source changes were
+  needed; the `Framework :: Django :: 6.1` trove classifier is declared.
+
 ### Changed
 - Trove classifier moved from `Development Status :: 3 - Alpha` to
   `4 - Beta`. The command set now covers the whole countdown lifecycle, tests
-  run across Python 3.10–3.14 × Django 5.2/6.0, and the documented behaviour is
-  under test — the API is stable enough to depend on. Takes effect on PyPI with
-  the next release; 0.3.0 shipped as Alpha.
+  run across Python 3.10–3.14 × Django 5.2/6.0/6.1, and the documented
+  behaviour is under test — the API is stable enough to depend on. Takes
+  effect on PyPI with the next release; 0.3.0 shipped as Alpha.
 
 ### Fixed
 - CI actions bumped off Node 20, which GitHub has deprecated:
