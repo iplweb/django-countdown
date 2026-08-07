@@ -92,8 +92,9 @@ during it turns an incident into a non-event.
 |---------|------|------|------|------|------|
 | 5.2 LTS | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 6.0 | — | — | ✓ | ✓ | ✓ |
+| 6.1 | — | — | ✓ | ✓ | ✓ |
 
-All eight cells run in CI on every push. The only runtime dependency is
+All eleven cells run in CI on every push. The only runtime dependency is
 Django itself.
 
 ## Licence

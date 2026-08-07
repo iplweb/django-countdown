@@ -49,8 +49,9 @@ while leaving operators unblocked so they can actually finish the work.
 |---------|------|------|------|------|------|-----------------------------------------|
 | 5.2 LTS | ✓    | ✓    | ✓    | ✓    | ✓    | Active LTS (extended support Apr 2028)  |
 | 6.0     | —    | —    | ✓    | ✓    | ✓    | Mainstream Aug 2026, extended Apr 2027  |
+| 6.1     | —    | —    | ✓    | ✓    | ✓    | Mainstream Apr 2027, extended Dec 2027  |
 
-All 8 cells are exercised by the CI matrix on every push. Django is the only
+All 11 cells are exercised by the CI matrix on every push. Django is the only
 runtime dependency.
 
 ## Installation

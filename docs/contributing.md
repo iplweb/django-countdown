@@ -111,8 +111,8 @@ Two workflows:
 
 **`tests.yml`** — on every push and pull request to `main`:
 
-- `test` — an 8-cell matrix (Django 5.2 on Python 3.10–3.14, Django 6.0 on
-  Python 3.12–3.14)
+- `test` — an 11-cell matrix (Django 5.2 on Python 3.10–3.14, Django 6.0 and
+  6.1 on Python 3.12–3.14)
 - `lint` — ruff check and format, advisory
 - `example-check` — `manage.py check` and `migrate` against `example/`
 

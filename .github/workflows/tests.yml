@@ -26,6 +26,10 @@ jobs:
           - { python-version: "3.12", django-version: "6.0" }
           - { python-version: "3.13", django-version: "6.0" }
           - { python-version: "3.14", django-version: "6.0" }
+          # Django 6.1
+          - { python-version: "3.12", django-version: "6.1" }
+          - { python-version: "3.13", django-version: "6.1" }
+          - { python-version: "3.14", django-version: "6.1" }
     steps:
       - uses: actions/checkout@v5
 
@@ -53,7 +57,7 @@ jobs:
           uv pip install "django~=${DJANGO_VER}.0"
 
       - name: Run tests
-        run: uv run pytest -v
+        run: uv run --no-sync pytest -v
 
   lint:
     runs-on: ubuntu-latest
