@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-08-07
+
+A metadata-only release: no source changes, just the declared support for
+Django 6.1 plus the CI and packaging fixes listed below.
+
 ### Added
 - Support for Django 6.1, released 2026-08-05. The CI matrix gains
   Django 6.1 on Python 3.12, 3.13 and 3.14 — 6.1 requires Python 3.12 or
