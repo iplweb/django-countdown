@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-25
+
+The maintenance page stops guessing. It used to reload itself on a timer and
+hope the site was back; now it asks, and moves only on an answer.
+
 ### Added
 - The maintenance page now waits for the site to come back on its own. It
   polls a small status endpoint in the background and, the moment the site is
