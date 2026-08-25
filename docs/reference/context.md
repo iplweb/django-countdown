@@ -83,6 +83,9 @@ what `render()` normally provides.
 |---|---|---|
 | `countdown` | `SiteCountdown` | The expired countdown that caused the block |
 | `site` | `Site` | Resolved current site — `site.name` and `site.domain` are used by the shipped templates |
+| `countdown_status_path` | `str` | Where the page polls for the site's return, including the mount prefix if the application has one |
+| `countdown_poll_interval` | `int` | Seconds between those polls; `0` renders the page without any |
+| `countdown_return_url` | `str` | The page the visitor originally asked for, and where they are sent once the site is back. Taken from `request.get_full_path()` and validated to resolve inside the site |
 
 Note the name: it is `countdown`, **not** `active_countdown`. A template
 written for the banner will not work as a maintenance page without renaming.
@@ -91,10 +94,29 @@ written for the banner will not work as a maintenance page without renaming.
 render(
     request,
     get_blocked_template(),
-    {"countdown": countdown, "site": current_site},
+    {
+        "countdown": countdown,
+        "site": countdown.site,
+        "countdown_status_path": get_status_url(request),
+        "countdown_poll_interval": get_poll_interval(),
+        "countdown_return_url": get_return_url(request),
+    },
     status=503,
 )
 ```
+
+The last three come from
+[settings](settings.md#django_countdown_status_path) and the request itself.
+If you render a maintenance template from your own view and omit them, the
+page still renders — it just never notices that the site came back.
+
+`get_return_url()` is not a synonym for `request.get_full_path()`: a path
+beginning with `//`, or with a backslash the browser reads as a slash,
+resolves as an address of its own and would send the visitor off the site
+entirely. Such a path falls back to `/`. Some WSGI servers normalise those
+paths away before Django sees them and some do not, so the check is made
+here. If you pass your own value, the page validates it once more against
+its own origin before navigating.
 
 Because `render()` builds a `RequestContext`, your configured context
 processors do run — including `countdown_context` itself, which returns
@@ -110,5 +132,8 @@ What the shipped templates read:
 | `countdown.long_description` | Optional paragraph, omitted when empty |
 | `countdown.maintenance_until` | Presence switches between the timer and the "no scheduled end" block |
 | `countdown.maintenance_until.isoformat` | Target timestamp handed to the JavaScript timer |
+| `countdown_poll_interval` | Presence switches the background poll and its status line on |
+| `countdown_status_path` | Where that poll goes |
+| `countdown_return_url` | Where the visitor is sent once the poll reports the site is back |
 | `site.name` | `<title>` and footer |
 | `LANGUAGE_CODE` | `<html lang="…">`, falling back to `en` — see [Translations](../guide/i18n.md) |

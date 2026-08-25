@@ -47,15 +47,107 @@ flowchart LR
 | Message | `countdown.message` |
 | Description | `countdown.long_description`, run through `linebreaks`, omitted when empty |
 | Timer | Counts down to `countdown.maintenance_until` |
+| Status line | What the background poll last learned about the server |
 | Footer | Apology paragraph plus `site.name` |
 
 With no `maintenance_until`, the timer block is replaced by "Maintenance has
 no scheduled end. The site will become available once an administrator
 unblocks it."
 
-The page also reloads itself — after three seconds once the timer expires,
-or every 30 seconds in indefinite mode — so visitors get back in without
-having to keep hitting refresh.
+The page also brings visitors back on its own, without them having to keep
+hitting refresh — that is the next section.
+
+## Waiting for the site to come back
+
+A maintenance window is not one state, it is three, and a visitor sitting on
+this page passes through all of them during an ordinary deployment:
+
+1. The old server is still running and still blocking.
+2. The container is being replaced. Nothing answers; the proxy in front
+   returns 502 or 504 out of its own pocket.
+3. The new server is up and the countdown is gone.
+
+So the page polls a small endpoint in the background — see
+[`DJANGO_COUNTDOWN_STATUS_PATH`](../reference/settings.md#django_countdown_status_path)
+— and reads the answer as follows:
+
+| What comes back | What it means | What the visitor sees |
+|---|---|---|
+| `200` + `"blocked": true` | Server is up, window is still on | "Checking whether the server is back…" |
+| `200` + `"blocked": true`, planned end already passed | The window is running over | "Maintenance is running longer than planned…" |
+| `200` + `"blocked": null` | The server is up but cannot read its own state | "The server is restarting — please wait…" |
+| `5xx`, a timeout, a refused connection, or JSON that isn't ours | Nothing is answering — mid-deploy | "The server is restarting — please wait…" |
+| `200` + `"blocked": false` | There is a site to go back to | "The system is available again…", then the page they originally asked for |
+
+`blocked` has three values, not two. A worker that has started but cannot
+reach the database yet does not know whether the site is blocked, and says
+so. Only an explicit `false` sends the visitor back in — a `null` read as
+"not blocked" would be the one lie that matters here, since it puts them on
+the error page this whole mechanism exists to avoid.
+
+The endpoint answers **HTTP 200 in every case**, which looks odd for a thing
+reporting an outage and is the entire point: a reverse proxy with no upstream
+answers `502`/`503` on its own, so a status endpoint that used those codes
+would be indistinguishable from the proxy speaking for it. The state travels
+in the body instead, behind a `"service": "django-countdown"` marker that
+tells a real answer from a captive portal or a cached error page.
+
+```json title="GET /__countdown_status__/"
+{
+  "service": "django-countdown",
+  "blocked": true,
+  "maintenance_until": "2026-08-25T09:36:21.509112+00:00"
+}
+```
+
+### The clock reports, the poll decides
+
+The timer on the page is a display, nothing more. It runs on the visitor's
+own clock against a timestamp baked into the HTML, so it knows the plan, not
+the reality — it happily reaches zero while the new container is still
+starting up. Navigating on its word alone would drop the visitor on the
+proxy's error page, where no script is left to try again and the only way
+back is a manual refresh.
+
+So when the planned end passes and the site is still down, nothing dramatic
+happens: the label flips to "Planned end exceeded by:" and starts counting
+the overrun, the status line says the server is restarting, and the page
+keeps waiting. Only a confirmed `"blocked": false` navigates.
+
+Each poll also carries the current `maintenance_until` back into the timer.
+Extend a running window with
+[`extend_countdown`](managing-a-countdown.md) and pages that are already open
+correct themselves within one interval, without a reload.
+
+Two smaller details, both deliberate:
+
+- Polling **pauses while the tab is hidden** and fires immediately when the
+  visitor comes back, so a forgotten tab costs nothing. Only one check is ever
+  outstanding: a tab brought back while a check is still on its way waits for
+  that one rather than starting a second, which would otherwise leave two
+  polling loops running in parallel — and then four, and then eight.
+- The return trip uses `location.replace()`, so the maintenance page does not
+  land in the visitor's history, and a page that was rendered in response to
+  a `POST` is not resubmitted.
+- The whole mechanism needs `fetch` and `AbortController`. A browser
+  without them gets the page with a working clock and no polling — the
+  populations involved are vanishing, and an XHR fallback would mean
+  reintroducing the blind reload this replaces.
+- Only one check is outstanding at a time, and each one has a deadline. A
+  proxy can accept a connection and never finish the response; without the
+  deadline that promise never settles and the tab quietly stops asking, even
+  after the site returns.
+- The destination is checked against the site's own origin, on the server and
+  again in the browser. A visitor who arrives on a crafted path is sent to
+  `/` rather than off the site — the maintenance page is a page people are
+  told to trust and wait on, which makes it an unusually good place from
+  which to bounce someone somewhere else.
+
+### Turning it off
+
+Set [`DJANGO_COUNTDOWN_POLL_INTERVAL`](../reference/settings.md#django_countdown_poll_interval)
+to `0`. The status line and the script disappear, the endpoint stays. The
+page then has no way to notice the site is back — visitors refresh by hand.
 
 ## Writing your own variant
 
@@ -94,7 +186,8 @@ Every available block, with its default value, is listed in
 - **`blocked_body`** replaces the whole page body. Use it when the structure
   itself is wrong for you — but note the countdown script lives *outside*
   that block and keeps running, so keep the element IDs it expects
-  (`countdown-display`, `countdown-value`) if you want the timer to work.
+  (`countdown-label`, `countdown-value`) if you want the timer to work. The
+  background poll runs either way.
 
 ## Replacing the shipped templates wholesale
 
@@ -167,3 +260,9 @@ status: temporary, do not deindex. The package does not set a `Retry-After`
 header. If a CDN or reverse proxy sits in front of your site, check that it
 does not cache 503 responses — otherwise the maintenance page can outlive the
 window it was announcing.
+
+The status endpoint sends `Cache-Control: no-store, no-cache,
+must-revalidate` and the page fetches it with `cache: 'no-store'`. A cached
+answer there is worse than no answer at all: every waiting visitor would be
+told the site is still down long after it came back, or — the other way
+round — sent to a site that is not up yet.

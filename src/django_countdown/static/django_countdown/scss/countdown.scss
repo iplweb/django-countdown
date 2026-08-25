@@ -288,6 +288,31 @@ body.maintenance-page {
     margin-bottom: 0.5rem;
   }
 
+  .maintenance-status {
+    font-size: 0.9rem;
+    color: #667eea;
+    margin-top: 0.75rem;
+    min-height: 1.3em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    &:empty {
+      display: none;
+    }
+
+    &::before {
+      content: "";
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+      animation: status-pulse 1.4s ease-in-out infinite;
+    }
+  }
+
   .maintenance-footer {
     font-size: 0.85rem;
     color: #888;
@@ -306,4 +331,13 @@ body.maintenance-page {
 @keyframes rotate-left {
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(-360deg); }
+}
+
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }

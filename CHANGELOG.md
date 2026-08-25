@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The maintenance page now waits for the site to come back on its own. It
+  polls a small status endpoint in the background and, the moment the site is
+  unblocked, sends the visitor to the page they originally asked for. A
+  deployment window is three states, not one — the old server still serving,
+  nothing serving while the container is replaced, the new server up — and
+  the page now tells them apart and says which one it is looking at.
+- `DJANGO_COUNTDOWN_STATUS_PATH` (default `/__countdown_status__/`) — the
+  path where `CountdownBlockingMiddleware` answers that poll. It is matched
+  before anything else in `process_request`, so it needs no `URLconf` entry
+  and answers even while the rest of the site is blocked. The response is
+  always HTTP 200, with the state in the body behind a
+  `"service": "django-countdown"` marker: a reverse proxy with no upstream
+  answers 5xx on its own, so a status endpoint using those codes could not be
+  told apart from the proxy speaking for it.
+- `DJANGO_COUNTDOWN_POLL_INTERVAL` (default `10` seconds) — how often the
+  page checks, scheduled with ±20 % of jitter so the end of a window does not
+  wake every waiting tab into a stampede against a server that has just
+  started. Only one check is ever outstanding, so switching away from the tab
+  and back while a check is in flight cannot leave two polling loops running
+  in parallel. `0` turns the polling off.
+- The destination of that return trip is validated against the site's own
+  origin, on the server and again in the browser before navigating. A path
+  beginning with `//` — or with a backslash, which browsers read as a slash —
+  resolves as an address of its own; unchecked, the maintenance page would be
+  an unusually effective open redirect, since it is a page visitors are told
+  to trust and wait on. Django's development server and gunicorn normalise
+  such paths away before the request arrives, uWSGI does not, and a library
+  cannot know which one it runs under.
+- `blocked` in that response has three values, not two. `null` means the
+  state could not be read — a worker that has started but cannot reach the
+  database yet does not know whether the site is blocked. Only an explicit
+  `false` sends the visitor back in; reporting `false` for an unreadable
+  state would put them on exactly the error page this feature exists to
+  avoid.
+- `blocked_status_line` and `blocked_status_class` template blocks for the
+  new status line, and `countdown_status_path` / `countdown_poll_interval` /
+  `countdown_return_url` in the blocked-page context.
+
+### Changed
+- The maintenance page no longer reloads itself blindly — neither three
+  seconds after the timer expires nor every 30 seconds during an indefinite
+  window. Both reloads assumed the site would be back by the time they fired;
+  when it was not, they dropped the visitor on the proxy's error page, where
+  no script was left to try again and the only way back was a manual refresh.
+  The timer now only reports, and navigation happens solely on a confirmed
+  answer from the server.
+- When the planned end passes and the site is still down, the timer's label
+  switches from "Estimated end of maintenance in:" to "Planned end exceeded
+  by:" and counts the overrun, instead of announcing "Maintenance finished!"
+  for something that plainly has not finished.
+- Each poll feeds the server's current `maintenance_until` back into the
+  timer, so extending a running window with `extend_countdown` corrects pages
+  that are already open, without a reload.
+- The always-open prefixes (`/admin/`, `/static/`, `/media/`) are now matched
+  against the path without the mount prefix. An application served under
+  `/tenant` used to lose all three during a window — including the admin
+  login page, the one door left for lifting the block.
+- `DJANGO_COUNTDOWN_POLL_INTERVAL` accepts a string, since settings are often
+  read from the environment, and falls back to the default with a warning
+  when the value is not a number at all. It is read while rendering the
+  blocked page, outside the middleware's fail-open guard, so raising there
+  would answer every visitor with a 500 for the length of the window.
+- The blocking decision moved into `get_blocking_countdown()`, shared by the
+  middleware and the status endpoint. The page a browser is shown and the
+  answer it polls for now come from one function and cannot disagree.
+
 ## [0.3.1] — 2026-08-07
 
 A metadata-only release: no source changes, just the declared support for

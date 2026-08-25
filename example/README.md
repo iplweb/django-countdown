@@ -69,3 +69,28 @@ Set `DJANGO_COUNTDOWN_BLOCKED_TEMPLATE` in `example_project/settings.py`
 to pick one site-wide, or preview each at
 `/preview/{plain|foundation|bootstrap}/` and
 `/preview/{...}/indefinite/`.
+
+The preview URLs render with polling switched off — they are static shots of
+the page. The real thing navigates away as soon as the site is back, which on
+a preview would bounce you off after a few seconds.
+
+## Watch the page bring itself back
+
+With a countdown running, open <http://127.0.0.1:8000/healthz/>. You get the
+maintenance page and a status line that says it is checking on the server.
+Leave it open and:
+
+```bash
+# Stop the server (Ctrl-C). Within a few seconds the line changes to
+# "The server is restarting - please wait...", and the page stays put.
+
+# Start it again, then clear the countdown from another shell:
+uv run python manage.py stop_countdown
+```
+
+The page notices on its own and takes you to `/healthz/`, the URL you asked
+for in the first place. Poll it directly to see what it is reading:
+
+```bash
+curl -s http://127.0.0.1:8000/__countdown_status__/
+```

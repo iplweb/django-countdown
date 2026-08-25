@@ -274,6 +274,28 @@ body.maintenance-page {
   font-weight: 400;
   margin-bottom: 0.5rem;
 }
+.maintenance-container .maintenance-status {
+  font-size: 0.9rem;
+  color: #667eea;
+  margin-top: 0.75rem;
+  min-height: 1.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.maintenance-container .maintenance-status:empty {
+  display: none;
+}
+.maintenance-container .maintenance-status::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  animation: status-pulse 1.4s ease-in-out infinite;
+}
 .maintenance-container .maintenance-footer {
   font-size: 0.85rem;
   color: #888;
@@ -299,5 +321,14 @@ body.maintenance-page {
   }
   100% {
     transform: rotate(-360deg);
+  }
+}
+
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
   }
 }
