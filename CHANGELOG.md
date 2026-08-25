@@ -61,6 +61,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each poll feeds the server's current `maintenance_until` back into the
   timer, so extending a running window with `extend_countdown` corrects pages
   that are already open, without a reload.
+- The always-open prefixes (`/admin/`, `/static/`, `/media/`) are now matched
+  against the path without the mount prefix. An application served under
+  `/tenant` used to lose all three during a window — including the admin
+  login page, the one door left for lifting the block.
+- `DJANGO_COUNTDOWN_POLL_INTERVAL` accepts a string, since settings are often
+  read from the environment, and falls back to the default with a warning
+  when the value is not a number at all. It is read while rendering the
+  blocked page, outside the middleware's fail-open guard, so raising there
+  would answer every visitor with a 500 for the length of the window.
 - The blocking decision moved into `get_blocking_countdown()`, shared by the
   middleware and the status endpoint. The page a browser is shown and the
   answer it polls for now come from one function and cannot disagree.

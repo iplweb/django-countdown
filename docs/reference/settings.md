@@ -89,6 +89,12 @@ page then has no way to notice that the site is back. Negative values are
 floored to `0`: a negative delay is one the browser runs immediately, which
 would turn every waiting tab into a request loop.
 
+A string is accepted and converted, since settings are often read from the
+environment. A value that is not a number at all logs a warning and falls
+back to the default rather than raising — this is read while rendering the
+blocked page, and an exception there would answer every visitor with a 500
+for the length of the window, in place of the page explaining it.
+
 ## Django settings that matter
 
 These are Django's own, but the package will not behave without them.
@@ -116,6 +122,10 @@ Three prefixes are never blocked:
 The status path above is exempt too, but it is not one of these: it is
 matched exactly rather than as a prefix, it is configurable, and it is
 handled before them.
+
+All of them are matched against the path as your `URLconf` sees it, without
+the mount prefix — an application served under `/tenant` keeps its admin
+reachable during a window.
 
 !!! warning "Hardcoded, not configurable"
 

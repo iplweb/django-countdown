@@ -118,7 +118,8 @@ The status endpoint — `/__countdown_status__/` unless you moved it — is open
 as well, and is handled before the three prefixes above.
 
 The prefixes are hardcoded in `CountdownBlockingMiddleware.process_request`
-and cannot be configured. If your admin lives at a different path — a common
+and cannot be configured. They are matched against the path as your
+`URLconf` sees it, so an application mounted under a prefix keeps them. If your admin lives at a different path — a common
 hardening measure — see the caveat in
 [Settings](../reference/settings.md#exempt-url-prefixes).
 

@@ -443,3 +443,65 @@ def test_poll_interval_never_goes_negative(settings):
     settings.DJANGO_COUNTDOWN_POLL_INTERVAL = -1
 
     assert get_poll_interval() == 0
+
+
+@pytest.mark.django_db
+def test_admin_stays_exempt_under_a_script_prefix():
+    """KRYTYCZNY: pod prefiksem montowania admin musi zostać otwarty.
+
+    ``request.path`` niesie SCRIPT_NAME, więc ``/tenant/admin/login/`` nie
+    zaczyna się od ``/admin/``. Wyjątek przestaje działać dokładnie wtedy,
+    gdy jest najbardziej potrzebny: superuser bez aktywnej sesji nie wejdzie
+    na stronę logowania, żeby zdjąć blokadę — a obejście blokady wymaga bycia
+    zalogowanym.
+    """
+    site = Site.objects.get_current()
+    baker.make(
+        SiteCountdown, site=site, countdown_time=timezone.now() - timedelta(hours=1)
+    )
+
+    request = RequestFactory(SCRIPT_NAME="/tenant").get("/admin/login/")
+
+    assert CountdownBlockingMiddleware(lambda r: None).process_request(request) is None
+
+
+@pytest.mark.django_db
+def test_static_stays_exempt_under_a_script_prefix():
+    """Bez tego strona blokady dostaje samą siebie zamiast arkusza stylów."""
+    site = Site.objects.get_current()
+    baker.make(
+        SiteCountdown, site=site, countdown_time=timezone.now() - timedelta(hours=1)
+    )
+
+    request = RequestFactory(SCRIPT_NAME="/tenant").get("/static/style.css")
+
+    assert CountdownBlockingMiddleware(lambda r: None).process_request(request) is None
+
+
+def test_poll_interval_accepts_a_value_read_from_the_environment(settings):
+    """Ustawienia bierze się często z env, a env zwraca napisy."""
+    settings.DJANGO_COUNTDOWN_POLL_INTERVAL = "30"
+
+    assert get_poll_interval() == 30
+
+
+def test_poll_interval_falls_back_when_the_setting_makes_no_sense(settings):
+    """KRYTYCZNY: zła wartość nie może położyć strony przerwy.
+
+    ``get_poll_interval()`` jest wołane poza blokiem fail-open middleware'u,
+    więc wyjątek stąd oznacza 500 dla każdego odwiedzającego przez całą
+    przerwę techniczną — zamiast strony, która tę przerwę tłumaczy.
+    """
+    settings.DJANGO_COUNTDOWN_POLL_INTERVAL = "co dziesięć sekund"
+
+    assert get_poll_interval() == 10
+
+
+@pytest.mark.django_db
+def test_blocked_page_still_renders_with_a_nonsense_poll_interval(settings):
+    """Zasada fail-open obowiązuje też przy błędnej konfiguracji."""
+    settings.DJANGO_COUNTDOWN_POLL_INTERVAL = None
+
+    content = render_blocked_page()
+
+    assert "System under maintenance" in content

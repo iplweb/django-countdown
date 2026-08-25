@@ -50,10 +50,27 @@ def get_poll_interval():
     background polling altogether. A negative value would schedule every
     check for the past, which the browser runs as "immediately" — so it is
     floored at zero rather than turned into a request loop.
+
+    A value that is not a number falls back to the default instead of
+    raising. This runs while rendering the blocked page, outside the
+    middleware's own fail-open guard: a raise here would answer every visitor
+    with a 500 for the length of the window, in place of the page explaining
+    it. Settings are commonly read from the environment, which yields
+    strings, so ``"30"`` is honoured rather than rejected.
     """
     interval = getattr(
         settings, "DJANGO_COUNTDOWN_POLL_INTERVAL", DEFAULT_POLL_INTERVAL
     )
+    try:
+        interval = int(interval)
+    except (TypeError, ValueError):
+        logger.warning(
+            "countdown: DJANGO_COUNTDOWN_POLL_INTERVAL is %r, which is not a "
+            "number of seconds; falling back to %s",
+            interval,
+            DEFAULT_POLL_INTERVAL,
+        )
+        interval = DEFAULT_POLL_INTERVAL
     return max(0, interval)
 
 
@@ -164,7 +181,10 @@ class CountdownBlockingMiddleware(MiddlewareMixin):
         if request.path_info == get_status_path():
             return build_status_response(request)
 
-        if request.path.startswith(EXEMPT_PREFIXES):
+        # path_info again: under a mount prefix, request.path carries it
+        # and "/tenant/admin/login/" stops matching "/admin/" — taking the
+        # admin out of reach exactly when someone needs it to lift the block.
+        if request.path_info.startswith(EXEMPT_PREFIXES):
             return None
 
         try:
