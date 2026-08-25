@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page checks, scheduled with ±20 % of jitter so the end of a window does not
   wake every waiting tab into a stampede against a server that has just
   started. `0` turns the polling off.
+- The destination of that return trip is validated against the site's own
+  origin, on the server and again in the browser before navigating. A path
+  beginning with `//` — or with a backslash, which browsers read as a slash —
+  resolves as an address of its own; unchecked, the maintenance page would be
+  an unusually effective open redirect, since it is a page visitors are told
+  to trust and wait on. Django's development server and gunicorn normalise
+  such paths away before the request arrives, uWSGI does not, and a library
+  cannot know which one it runs under.
 - `blocked_status_line` and `blocked_status_class` template blocks for the
   new status line, and `countdown_status_path` / `countdown_poll_interval` /
   `countdown_return_url` in the blocked-page context.

@@ -119,6 +119,11 @@ Two smaller details, both deliberate:
 - The return trip uses `location.replace()`, so the maintenance page does not
   land in the visitor's history, and a page that was rendered in response to
   a `POST` is not resubmitted.
+- The destination is checked against the site's own origin, on the server and
+  again in the browser. A visitor who arrives on a crafted path is sent to
+  `/` rather than off the site — the maintenance page is a page people are
+  told to trust and wait on, which makes it an unusually good place from
+  which to bounce someone somewhere else.
 
 ### Turning it off
 

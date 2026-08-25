@@ -85,7 +85,7 @@ what `render()` normally provides.
 | `site` | `Site` | Resolved current site — `site.name` and `site.domain` are used by the shipped templates |
 | `countdown_status_path` | `str` | Where the page polls for the site's return |
 | `countdown_poll_interval` | `int` | Seconds between those polls; `0` renders the page without any |
-| `countdown_return_url` | `str` | `request.get_full_path()` — the page the visitor originally asked for, and where they are sent once the site is back |
+| `countdown_return_url` | `str` | The page the visitor originally asked for, and where they are sent once the site is back. Taken from `request.get_full_path()` and validated to resolve inside the site |
 
 Note the name: it is `countdown`, **not** `active_countdown`. A template
 written for the banner will not work as a maintenance page without renaming.
@@ -99,7 +99,7 @@ render(
         "site": countdown.site,
         "countdown_status_path": get_status_path(),
         "countdown_poll_interval": get_poll_interval(),
-        "countdown_return_url": request.get_full_path(),
+        "countdown_return_url": get_return_url(request),
     },
     status=503,
 )
@@ -109,6 +109,14 @@ The last three come from
 [settings](settings.md#django_countdown_status_path) and the request itself.
 If you render a maintenance template from your own view and omit them, the
 page still renders — it just never notices that the site came back.
+
+`get_return_url()` is not a synonym for `request.get_full_path()`: a path
+beginning with `//`, or with a backslash the browser reads as a slash,
+resolves as an address of its own and would send the visitor off the site
+entirely. Such a path falls back to `/`. Some WSGI servers normalise those
+paths away before Django sees them and some do not, so the check is made
+here. If you pass your own value, the page validates it once more against
+its own origin before navigating.
 
 Because `render()` builds a `RequestContext`, your configured context
 processors do run — including `countdown_context` itself, which returns

@@ -147,6 +147,19 @@
                 if (statusElement) statusElement.textContent = message;
             }
 
+            /* Last gate before navigating. The return URL can also be handed
+               in by a custom view that renders this template itself, so
+               anything resolving off-origin goes to the root instead of
+               taking the visitor off the site. */
+            function sameOriginOrRoot(candidate) {
+                try {
+                    var resolved = new URL(candidate, window.location.href);
+                    return resolved.origin === window.location.origin ? resolved.href : '/';
+                } catch (e) {
+                    return '/';
+                }
+            }
+
             function scheduleNext() {
                 if (leaving || document.hidden) return;
                 /* +/-20 % of jitter: when maintenance ends, every waiting tab
@@ -161,7 +174,7 @@
                 show(labels.ready);
                 /* replace(), not reload(): the blocked page stays out of the
                    history and a page rendered for a POST is not resubmitted. */
-                setTimeout(function () { window.location.replace(returnUrl); }, 1500);
+                setTimeout(function () { window.location.replace(sameOriginOrRoot(returnUrl)); }, 1500);
             }
 
             function poll() {
