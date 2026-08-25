@@ -99,6 +99,11 @@
             var labelElement = document.getElementById('countdown-label');
             var valueElement = document.getElementById('countdown-value');
 
+            /* A custom blocked_body may drop these. Losing the clock costs a
+               reader nothing but the number; letting it throw would take the
+               poller down with it and strand them here for good. */
+            if (!labelElement || !valueElement) return;
+
             function tick() {
                 var distance = maintenanceUntil - new Date().getTime();
 
@@ -188,24 +193,45 @@
                 if (inFlight) return;
                 inFlight = true;
 
+                /* A proxy can accept the connection and never finish the
+                   response. Without a deadline the promise never settles,
+                   inFlight stays raised and the tab stops asking — including
+                   after the server comes back. */
+                var controller = (typeof AbortController === 'function')
+                    ? new AbortController() : null;
+                var deadline = controller
+                    ? setTimeout(function () { controller.abort(); }, Math.max(pollInterval, 5000))
+                    : null;
+
                 fetch(statusPath, {
                     cache: 'no-store',
                     credentials: 'same-origin',
-                    headers: {'Accept': 'application/json'}
+                    headers: {'Accept': 'application/json'},
+                    signal: controller ? controller.signal : undefined
                 })
                     .then(function (response) {
                         if (!response.ok) throw new Error('HTTP ' + response.status);
                         return response.json();
                     })
                     .then(function (status) {
+                        clearTimeout(deadline);
                         inFlight = false;
                         /* Without the marker this is someone else answering -
                            a proxy error page, a captive portal, a cached blob. */
                         if (status.service !== "django-countdown") {
                             throw new Error('not a django-countdown status');
                         }
-                        if (!status.blocked) {
+                        /* Only an explicit false is permission to leave.
+                           null means the server could not read its own state,
+                           and a visitor sent back on a shrug lands on the
+                           error page this whole mechanism exists to avoid. */
+                        if (status.blocked === false) {
                             leaveForRequestedPage();
+                            return;
+                        }
+                        if (status.blocked !== true) {
+                            show(labels.unreachable);
+                            scheduleNext();
                             return;
                         }
                         retargetClock(status.maintenance_until);
@@ -213,6 +239,7 @@
                         scheduleNext();
                     })
                     .catch(function () {
+                        clearTimeout(deadline);
                         inFlight = false;
                         /* Refused, timed out, 502 from the proxy: the
                            application is down mid-deploy. Keep waiting. */

@@ -53,9 +53,11 @@ page runs — see [Waiting for the site to come back](../guide/blocked-page.md#w
 DJANGO_COUNTDOWN_STATUS_PATH = "/_internal/countdown-status/"
 ```
 
-The middleware compares `request.path` to this value **before** anything
-else, so the endpoint needs no entry in your `URLconf` and answers even while
-the rest of the site is blocked. Change it only if the default collides with
+The middleware compares `request.path_info` to this value **before**
+anything else, so the endpoint needs no entry in your `URLconf` and answers
+even while the rest of the site is blocked. `path_info` rather than `path`,
+so an application mounted under a prefix still matches; the blocked page is
+handed the prefixed URL to ask for. Change it only if the default collides with
 a URL of your own; the leading and trailing slashes are part of the match.
 
 Whatever you set here is exempt from blocking, so treat it as a public
@@ -83,7 +85,9 @@ server that has just started, and spreading those requests is the difference
 between a warm-up and a stampede.
 
 `0` disables the polling entirely — no status line, no `fetch`, and the
-page then has no way to notice that the site is back.
+page then has no way to notice that the site is back. Negative values are
+floored to `0`: a negative delay is one the browser runs immediately, which
+would turn every waiting tab into a request loop.
 
 ## Django settings that matter
 

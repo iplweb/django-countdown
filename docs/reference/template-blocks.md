@@ -65,9 +65,11 @@ replacing the whole template. It looks for four IDs:
 | `countdown-status` | Status line | What the background poll last learned about the server | polling is on |
 
 If you override `blocked_body`, keep `id="countdown-value"` and
-`id="countdown-label"` on some element or the timer silently does nothing —
-`document.getElementById` returns `null` and the first tick throws. The
-status line is looked up defensively and may be missing.
+`id="countdown-label"` on some element or the page renders without a timer:
+both are looked for before the clock starts, and their absence skips it. The
+background poll runs either way — losing the clock costs the reader a number,
+while losing the poll would strand them on the page for good. The status line
+is optional in the same way.
 
 ## Structure at a glance
 

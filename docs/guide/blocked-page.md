@@ -75,8 +75,15 @@ So the page polls a small endpoint in the background — see
 |---|---|---|
 | `200` + `"blocked": true` | Server is up, window is still on | "Checking whether the server is back…" |
 | `200` + `"blocked": true`, planned end already passed | The window is running over | "Maintenance is running longer than planned…" |
+| `200` + `"blocked": null` | The server is up but cannot read its own state | "The server is restarting — please wait…" |
 | `5xx`, a timeout, a refused connection, or JSON that isn't ours | Nothing is answering — mid-deploy | "The server is restarting — please wait…" |
 | `200` + `"blocked": false` | There is a site to go back to | "The system is available again…", then the page they originally asked for |
+
+`blocked` has three values, not two. A worker that has started but cannot
+reach the database yet does not know whether the site is blocked, and says
+so. Only an explicit `false` sends the visitor back in — a `null` read as
+"not blocked" would be the one lie that matters here, since it puts them on
+the error page this whole mechanism exists to avoid.
 
 The endpoint answers **HTTP 200 in every case**, which looks odd for a thing
 reporting an outage and is the entire point: a reverse proxy with no upstream
@@ -122,6 +129,10 @@ Two smaller details, both deliberate:
 - The return trip uses `location.replace()`, so the maintenance page does not
   land in the visitor's history, and a page that was rendered in response to
   a `POST` is not resubmitted.
+- Only one check is outstanding at a time, and each one has a deadline. A
+  proxy can accept a connection and never finish the response; without the
+  deadline that promise never settles and the tab quietly stops asking, even
+  after the site returns.
 - The destination is checked against the site's own origin, on the server and
   again in the browser. A visitor who arrives on a crafted path is sent to
   `/` rather than off the site — the maintenance page is a page people are

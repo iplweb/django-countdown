@@ -47,9 +47,24 @@ def get_poll_interval():
     """Return how many seconds the blocked page waits between status checks.
 
     Override via ``DJANGO_COUNTDOWN_POLL_INTERVAL``. Zero disables the
-    background polling altogether.
+    background polling altogether. A negative value would schedule every
+    check for the past, which the browser runs as "immediately" — so it is
+    floored at zero rather than turned into a request loop.
     """
-    return getattr(settings, "DJANGO_COUNTDOWN_POLL_INTERVAL", DEFAULT_POLL_INTERVAL)
+    interval = getattr(
+        settings, "DJANGO_COUNTDOWN_POLL_INTERVAL", DEFAULT_POLL_INTERVAL
+    )
+    return max(0, interval)
+
+
+def get_status_url(request):
+    """Return the status path as the browser has to ask for it.
+
+    ``get_status_path()`` is relative to the application. Mounted under a
+    prefix, the application sees ``/__countdown_status__/`` while the browser
+    has to ask for ``/tenant/__countdown_status__/``.
+    """
+    return request.META.get("SCRIPT_NAME", "") + get_status_path()
 
 
 def get_return_url(request):
@@ -74,12 +89,13 @@ def get_blocking_countdown(request):
     This is the single decision both the middleware and the status endpoint
     consult, so the page a browser is shown and the answer it polls for can
     never disagree.
+
+    Failures are raised, not swallowed: ``None`` has to keep meaning "nothing
+    blocks this request" and nothing else. The two callers then answer the
+    same unknown differently — the middleware lets the request through, the
+    status endpoint says it does not know.
     """
-    try:
-        current_site = get_current_site(request)
-    except Exception:
-        logger.exception("countdown middleware: failed to resolve Site")
-        return None
+    current_site = get_current_site(request)
 
     try:
         countdown = SiteCountdown.objects.select_related("site").get(site=current_site)
@@ -107,14 +123,26 @@ def build_status_response(request):
 
     Always HTTP 200: a reverse proxy with no upstream answers 5xx on its own,
     so the state has to travel in the body to stay distinguishable from it.
+
+    ``blocked`` has three values, not two. ``null`` means the state could not
+    be read — a worker whose database is not up yet cannot tell. Reporting
+    ``false`` there would be the one lie this endpoint must never tell: the
+    page treats ``false`` as permission to send the visitor back in.
     """
-    countdown = get_blocking_countdown(request)
+    try:
+        countdown = get_blocking_countdown(request)
+        blocked = countdown is not None
+    except Exception:
+        logger.exception("countdown status: failed to read the maintenance state")
+        countdown = None
+        blocked = None
+
     maintenance_until = countdown.maintenance_until if countdown else None
 
     response = JsonResponse(
         {
             "service": SERVICE_MARKER,
-            "blocked": countdown is not None,
+            "blocked": blocked,
             "maintenance_until": (
                 maintenance_until.isoformat() if maintenance_until else None
             ),
@@ -132,13 +160,23 @@ class CountdownBlockingMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
-        if request.path == get_status_path():
+        # path_info, not path: under a mount prefix the latter carries it.
+        if request.path_info == get_status_path():
             return build_status_response(request)
 
         if request.path.startswith(EXEMPT_PREFIXES):
             return None
 
-        countdown = get_blocking_countdown(request)
+        try:
+            countdown = get_blocking_countdown(request)
+        except Exception:
+            # Fail open. A broken countdown must never take a working site
+            # down, so an unreadable state lets the request through.
+            logger.exception(
+                "countdown middleware: failed to read the maintenance state"
+            )
+            return None
+
         if countdown is None:
             return None
 
@@ -148,7 +186,7 @@ class CountdownBlockingMiddleware(MiddlewareMixin):
             {
                 "countdown": countdown,
                 "site": countdown.site,
-                "countdown_status_path": get_status_path(),
+                "countdown_status_path": get_status_url(request),
                 "countdown_poll_interval": get_poll_interval(),
                 "countdown_return_url": get_return_url(request),
             },

@@ -83,7 +83,7 @@ what `render()` normally provides.
 |---|---|---|
 | `countdown` | `SiteCountdown` | The expired countdown that caused the block |
 | `site` | `Site` | Resolved current site — `site.name` and `site.domain` are used by the shipped templates |
-| `countdown_status_path` | `str` | Where the page polls for the site's return |
+| `countdown_status_path` | `str` | Where the page polls for the site's return, including the mount prefix if the application has one |
 | `countdown_poll_interval` | `int` | Seconds between those polls; `0` renders the page without any |
 | `countdown_return_url` | `str` | The page the visitor originally asked for, and where they are sent once the site is back. Taken from `request.get_full_path()` and validated to resolve inside the site |
 
@@ -97,7 +97,7 @@ render(
     {
         "countdown": countdown,
         "site": countdown.site,
-        "countdown_status_path": get_status_path(),
+        "countdown_status_path": get_status_url(request),
         "countdown_poll_interval": get_poll_interval(),
         "countdown_return_url": get_return_url(request),
     },

@@ -13,6 +13,7 @@ from datetime import timedelta
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+from django.db import OperationalError
 from django.test import RequestFactory
 from django.utils import timezone
 from model_bakery import baker
@@ -20,6 +21,7 @@ from model_bakery import baker
 from django_countdown.middleware import (
     DEFAULT_STATUS_PATH,
     CountdownBlockingMiddleware,
+    get_poll_interval,
     get_return_url,
 )
 from django_countdown.models import SiteCountdown
@@ -194,7 +196,7 @@ def test_blocked_page_embeds_status_path_and_poll_interval():
     content = render_blocked_page()
 
     assert DEFAULT_STATUS_PATH in content
-    assert "10" in content
+    assert "var pollInterval = 10 * 1000;" in content
 
 
 @pytest.mark.django_db
@@ -328,3 +330,116 @@ def test_blocked_page_polls_one_request_at_a_time():
     content = render_blocked_page()
 
     assert "if (inFlight) return;" in content
+
+
+# ============================================================================
+# „NIE WIEM" TO NIE „WOLNE"
+# ============================================================================
+
+
+@pytest.mark.django_db
+def test_status_endpoint_reports_unknown_when_the_state_cannot_be_read(mocker):
+    """KRYTYCZNY: nierozpoznany stan nie może wyglądać jak odblokowanie.
+
+    Świeży worker z jeszcze niedostępną bazą nie potrafi ustalić, czy witryna
+    jest zablokowana. Gdyby zgłosił ``blocked: false``, przeglądarka uznałaby
+    to za potwierdzenie i przeniosła użytkownika na stronę, która zaraz
+    zwróci 500 — czyli endpoint mówiłby „wchodź" akurat wtedy, gdy nie ma
+    pojęcia.
+    """
+    mocker.patch(
+        "django_countdown.middleware.get_current_site",
+        side_effect=OperationalError("baza jeszcze nie wstala"),
+    )
+
+    response = call_status()
+
+    assert response.status_code == 200
+    assert payload(response)["blocked"] is None
+
+
+@pytest.mark.django_db
+def test_middleware_still_fails_open_when_the_state_cannot_be_read(mocker):
+    """Zepsuty countdown nigdy nie kładzie działającej witryny.
+
+    Endpoint mówi „nie wiem", ale middleware nadal przepuszcza żądanie —
+    to dwie różne odpowiedzi na ten sam brak wiedzy i obie są zamierzone.
+    """
+    mocker.patch(
+        "django_countdown.middleware.get_current_site",
+        side_effect=OperationalError("baza jeszcze nie wstala"),
+    )
+    site = Site.objects.get_current()
+    baker.make(
+        SiteCountdown, site=site, countdown_time=timezone.now() - timedelta(hours=1)
+    )
+
+    request = RequestFactory().get("/")
+
+    assert CountdownBlockingMiddleware(lambda r: None).process_request(request) is None
+
+
+@pytest.mark.django_db
+def test_blocked_page_navigates_only_on_an_explicit_false(mocker):
+    """Nawigacja wyłącznie na jawne ``false`` — ``null`` to nie zgoda."""
+    content = render_blocked_page()
+
+    assert "status.blocked === false" in content
+
+
+@pytest.mark.django_db
+def test_blocked_page_gives_up_on_a_hung_request():
+    """Odpowiedź, która nigdy nie nadchodzi, nie może zatrzymać odpytywania.
+
+    Proxy potrafi przyjąć połączenie i nigdy go nie domknąć. Bez limitu czasu
+    ``inFlight`` zostałoby na zawsze ``true`` i karta przestałaby pytać —
+    także po powrocie serwera.
+    """
+    content = render_blocked_page()
+
+    assert "AbortController" in content
+
+
+# ============================================================================
+# APLIKACJA ZAMONTOWANA POD PREFIKSEM (SCRIPT_NAME)
+# ============================================================================
+
+
+@pytest.mark.django_db
+def test_status_endpoint_answers_under_a_script_prefix():
+    """Aplikacja pod /tenant/ też musi umieć odpowiedzieć na odpytanie."""
+    request = RequestFactory(SCRIPT_NAME="/tenant").get(DEFAULT_STATUS_PATH)
+    response = CountdownBlockingMiddleware(lambda r: None).process_request(request)
+
+    assert response.status_code == 200
+    assert payload(response)["service"] == "django-countdown"
+
+
+@pytest.mark.django_db
+def test_blocked_page_points_the_poll_at_the_mounted_prefix():
+    """Przeglądarka pyta pod adresem, który do aplikacji naprawdę trafia."""
+    site = Site.objects.get_current()
+    baker.make(
+        SiteCountdown,
+        site=site,
+        countdown_time=timezone.now() - timedelta(minutes=5),
+        maintenance_until=timezone.now() + timedelta(minutes=20),
+    )
+
+    request = RequestFactory(SCRIPT_NAME="/tenant").get("/raport/")
+    response = CountdownBlockingMiddleware(lambda r: None).process_request(request)
+    content = response.content.decode("utf-8")
+
+    assert 'var statusPath = "/tenant/__countdown_status__/"' in content
+
+
+# ============================================================================
+# WALIDACJA USTAWIEŃ
+# ============================================================================
+
+
+def test_poll_interval_never_goes_negative(settings):
+    """Ujemny interwał dałby setTimeout(0) i zapętlone odpytywanie."""
+    settings.DJANGO_COUNTDOWN_POLL_INTERVAL = -1
+
+    assert get_poll_interval() == 0
