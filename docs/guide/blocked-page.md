@@ -129,6 +129,10 @@ Two smaller details, both deliberate:
 - The return trip uses `location.replace()`, so the maintenance page does not
   land in the visitor's history, and a page that was rendered in response to
   a `POST` is not resubmitted.
+- The whole mechanism needs `fetch` and `AbortController`. A browser
+  without them gets the page with a working clock and no polling — the
+  populations involved are vanishing, and an XHR fallback would mean
+  reintroducing the blind reload this replaces.
 - Only one check is outstanding at a time, and each one has a deadline. A
   proxy can accept a connection and never finish the response; without the
   deadline that promise never settles and the tab quietly stops asking, even
@@ -182,7 +186,8 @@ Every available block, with its default value, is listed in
 - **`blocked_body`** replaces the whole page body. Use it when the structure
   itself is wrong for you — but note the countdown script lives *outside*
   that block and keeps running, so keep the element IDs it expects
-  (`countdown-display`, `countdown-value`) if you want the timer to work.
+  (`countdown-label`, `countdown-value`) if you want the timer to work. The
+  background poll runs either way.
 
 ## Replacing the shipped templates wholesale
 

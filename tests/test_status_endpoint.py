@@ -1,10 +1,15 @@
 """Testy endpointu statusu odpytywanego w tle przez stronę przerwy technicznej.
 
-Endpoint ma jedno zadanie: pozwolić przeglądarce odróżnić trzy sytuacje —
-serwer działa i przerwa trwa, serwer działa i przerwa się skończyła, serwer
-nie odpowiada (nginx zwraca 5xx). Dlatego zawsze odpowiada kodem 200,
-a stan niesie w ciele odpowiedzi: kod 503 potrafiłby wygenerować sam proxy
-i wtedy dwa pierwsze przypadki byłyby nieodróżnialne od trzeciego.
+Endpoint ma jedno zadanie: pozwolić przeglądarce odróżnić sytuacje, w których
+inaczej wyglądałaby tak samo — serwer działa i przerwa trwa, serwer działa
+i przerwa się skończyła, serwer nie odpowiada (nginx zwraca 5xx), wreszcie
+serwer działa, ale własnego stanu odczytać nie potrafi. Dlatego zawsze
+odpowiada kodem 200, a stan niesie w ciele odpowiedzi: kod 503 potrafiłby
+wygenerować sam proxy i wtedy pierwsze przypadki byłyby nieodróżnialne od
+martwego serwera.
+
+Stąd też ``blocked`` ma trzy wartości, nie dwie. ``null`` znaczy „nie wiem",
+a przeglądarka wraca na stronę wyłącznie na jawne ``false``.
 """
 
 import json
@@ -505,3 +510,20 @@ def test_blocked_page_still_renders_with_a_nonsense_poll_interval(settings):
     content = render_blocked_page()
 
     assert "System under maintenance" in content
+
+
+@pytest.mark.django_db
+def test_poll_interval_is_never_localised(settings):
+    """KRYTYCZNY: separator tysięcy zamienia liczbę w JS-ie w błąd składni.
+
+    Szablony Django lokalizują liczby. Przy ``USE_THOUSAND_SEPARATOR = True``
+    interwał 1800 renderuje się jako ``1,800``, a ``var pollInterval = 1,800
+    * 1000;`` to ``SyntaxError`` — który wywala **cały** blok ``<script>``.
+    Ginie nie tylko odpytywanie, ale i zegar, i to bez śladu na stronie.
+    """
+    settings.USE_THOUSAND_SEPARATOR = True
+    settings.DJANGO_COUNTDOWN_POLL_INTERVAL = 1800
+
+    content = render_blocked_page()
+
+    assert "var pollInterval = 1800 * 1000;" in content

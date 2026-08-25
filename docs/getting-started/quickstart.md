@@ -69,8 +69,9 @@ Concretely:
    timer and the estimated duration of the upcoming maintenance.
 2. **During the window** — anonymous and non-superuser visitors get the
    maintenance page with `HTTP 503`; the page shows its own timer counting
-   down to reopening and reloads itself when it hits zero. Superusers browse
-   normally and see a subdued "system under maintenance" banner instead.
+   down to reopening, and takes them back the moment the site returns.
+   Superusers browse normally and see a subdued "system under maintenance"
+   banner instead.
 3. **After `maintenance_until`** — the middleware stops blocking, and the
    banner disappears for everyone. The database row stays behind until you
    delete it.
@@ -88,8 +89,8 @@ $ ./manage.py start_countdown --banner +1m --service indefinite --noinput
 ```
 
 Nothing reopens the site on its own in this mode. The maintenance page tells
-visitors there is no scheduled end and reloads every 30 seconds, so the site
-comes back for them as soon as you unblock it.
+visitors there is no scheduled end and keeps checking the server in the
+background, so it takes them back within seconds of you unblocking it.
 
 ## Reopen the site
 

@@ -35,7 +35,7 @@ from opposite ends of the request:
 ```mermaid
 flowchart TD
     R([Request]) --> Q{"Path is the<br/>status endpoint?"}
-    Q -- yes --> J([JSON: blocked true/false<br/>HTTP 200, always])
+    Q -- yes --> J([JSON: blocked true/false/null<br/>HTTP 200, always])
     Q -- no --> M{"Path starts with<br/>/admin/, /static/, /media/?"}
     M -- yes --> PASS([Pass through])
     M -- no --> S{"Current Site<br/>resolvable?"}

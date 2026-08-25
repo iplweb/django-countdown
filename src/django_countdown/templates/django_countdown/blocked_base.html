@@ -1,4 +1,4 @@
-{% load i18n static %}{% spaceless %}
+{% load i18n l10n static %}{% spaceless %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}" dir="ltr">
 <head>
@@ -137,7 +137,10 @@
 
         {% if countdown_poll_interval %}
         (function startPoller() {
-            var pollInterval = {{ countdown_poll_interval }} * 1000;
+            /* unlocalize: Django formats numbers for humans, and a
+               thousands separator turns this line into a syntax error that
+               takes the whole script with it — clock included. */
+            var pollInterval = {{ countdown_poll_interval|unlocalize }} * 1000;
             var statusPath = "{{ countdown_status_path|escapejs }}";
             var returnUrl = "{{ countdown_return_url|escapejs }}";
             var statusElement = document.getElementById('countdown-status');
