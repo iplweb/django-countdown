@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: django-countdown 0.1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-12 09:03-0500\n"
+"POT-Creation-Date: 2026-08-25 11:15+0200\n"
 "PO-Revision-Date: 2026-05-12 16:00+0200\n"
 "Last-Translator: Michał Pasternak <michal.dtz@gmail.com>\n"
 "Language-Team: Polish\n"
@@ -39,43 +39,43 @@ msgstr "Komunikaty"
 msgid "Metadata"
 msgstr "Metadane"
 
-#: admin.py:52 models.py:123
+#: admin.py:52 models.py:111
 msgid "Time remaining"
 msgstr "Pozostały czas"
 
-#: admin.py:58 models.py:102
+#: admin.py:58 models.py:104
 msgid "Not set"
 msgstr "Nie ustawiono"
 
-#: admin.py:64 models.py:104
+#: admin.py:64 models.py:106
 msgid "Expired"
 msgstr "Wygasło"
 
-#: apps.py:8 models.py:54
+#: apps.py:8 models.py:56
 msgid "Site shutdown countdown"
 msgstr "Odliczanie do zamknięcia serwisu"
 
-#: models.py:15
+#: models.py:17
 msgid "Site"
 msgstr "Serwis"
 
-#: models.py:16
+#: models.py:18
 msgid "Site to which this countdown applies"
 msgstr "Serwis, którego dotyczy odliczanie"
 
-#: models.py:22
+#: models.py:24
 msgid "Countdown time"
 msgstr "Czas odliczania"
 
-#: models.py:23
+#: models.py:25
 msgid "Date and time at which the site will be blocked"
 msgstr "Data i godzina, o której serwis zostanie zablokowany"
 
-#: models.py:29
+#: models.py:31
 msgid "Maintenance end"
 msgstr "Koniec konserwacji"
 
-#: models.py:31
+#: models.py:33
 msgid ""
 "Date and time when maintenance ends (optional). Leave empty for indefinite "
 "maintenance — the site will stay blocked until the countdown is removed."
@@ -84,72 +84,52 @@ msgstr ""
 "puste, aby konserwacja trwała bezterminowo — serwis pozostanie zablokowany "
 "do czasu usunięcia odliczania."
 
-#: models.py:39
+#: models.py:41
 msgid "Short message"
 msgstr "Krótka wiadomość"
 
-#: models.py:40
+#: models.py:42
 msgid "Short message shown in the page header (max 200 chars)"
 msgstr "Krótki komunikat wyświetlany w nagłówku strony (max 200 znaków)"
 
-#: models.py:46
+#: models.py:48
 msgid "Long description"
 msgstr "Długi opis"
 
-#: models.py:47
+#: models.py:49
 msgid "Optional longer description shown on the blocked page"
 msgstr "Opcjonalny dłuższy opis wyświetlany na zablokowanej stronie"
 
-#: models.py:50
+#: models.py:52
 msgid "Created at"
 msgstr "Data utworzenia"
 
-#: models.py:51
+#: models.py:53
 msgid "Updated at"
 msgstr "Data aktualizacji"
 
-#: models.py:55
+#: models.py:57
 msgid "Site shutdown countdowns"
 msgstr "Odliczania do zamknięcia serwisu"
 
-#: models.py:68
+#: models.py:70
 msgid "Expired?"
 msgstr "Wygasło?"
 
-#: models.py:75
+#: models.py:77
 msgid "Indefinite?"
 msgstr "Bezterminowo?"
 
-#: models.py:84
+#: models.py:86
 msgid "Countdown time cannot be in the past. Pick a future date."
 msgstr ""
 "Czas odliczania nie może być w przeszłości. Wybierz datę w przyszłości."
 
-#: models.py:94
+#: models.py:96
 msgid "Maintenance end must be later than the countdown time."
 msgstr "Koniec konserwacji musi być późniejszy niż czas odliczania."
 
-#: models.py:113
-#, python-format
-msgid "%(n)d days"
-msgstr "%(n)d dni"
-
-#: models.py:115
-#, python-format
-msgid "%(n)d h"
-msgstr "%(n)d godz"
-
-#: models.py:117
-#, python-format
-msgid "%(n)d min"
-msgstr "%(n)d min"
-
-#: models.py:119
-#, python-format
-msgid "%(n)d sec"
-msgstr "%(n)d sek"
-
-#: models.py:136
+#: models.py:124
 msgid "Maintenance finished?"
 msgstr "Konserwacja zakończona?"
 
@@ -163,6 +143,7 @@ msgid "System under maintenance"
 msgstr "Trwa konserwacja systemu"
 
 #: templates/django_countdown/blocked_base.html:32
+#: templates/django_countdown/blocked_base.html:61
 msgid "Estimated end of maintenance in:"
 msgstr "Orientacyjny koniec prac konserwacyjnych za:"
 
@@ -178,7 +159,7 @@ msgstr "Konserwacja nie ma zaplanowanego końca."
 msgid "The site will become available once an administrator unblocks it."
 msgstr "Serwis będzie dostępny dopiero po odblokowaniu przez administratora."
 
-#: templates/django_countdown/blocked_base.html:43
+#: templates/django_countdown/blocked_base.html:49
 msgid ""
 "We're sorry for the inconvenience. We're rolling out an important update. "
 "Thank you for your patience."
@@ -186,29 +167,46 @@ msgstr ""
 "Przepraszamy za chwilową niedogodność. Wdrażamy ważną aktualizację. "
 "Dziękujemy za wyrozumiałość."
 
-#: templates/django_countdown/blocked_base.html:51
+#: templates/django_countdown/blocked_base.html:57
 #: templates/django_countdown/countdown_banner.html:70
 msgid "days"
 msgstr "dni"
 
-#: templates/django_countdown/blocked_base.html:52
+#: templates/django_countdown/blocked_base.html:58
 #: templates/django_countdown/countdown_banner.html:71
 msgid "h"
 msgstr "godz"
 
-#: templates/django_countdown/blocked_base.html:53
+#: templates/django_countdown/blocked_base.html:59
 #: templates/django_countdown/countdown_banner.html:72
 msgid "min"
 msgstr "min"
 
-#: templates/django_countdown/blocked_base.html:54
+#: templates/django_countdown/blocked_base.html:60
 #: templates/django_countdown/countdown_banner.html:73
 msgid "sec"
 msgstr "sek"
 
-#: templates/django_countdown/blocked_base.html:55
-msgid "Maintenance finished!"
-msgstr "Prace konserwacyjne zakończone!"
+#: templates/django_countdown/blocked_base.html:62
+msgid "Planned end exceeded by:"
+msgstr "Planowany koniec przekroczony o:"
+
+#: templates/django_countdown/blocked_base.html:63
+msgid "Checking whether the server is back…"
+msgstr "Sprawdzam, czy serwer już działa…"
+
+#: templates/django_countdown/blocked_base.html:64
+msgid ""
+"Maintenance is running longer than planned — still waiting for the server."
+msgstr "Przerwa trwa dłużej niż planowano — czekam na serwer."
+
+#: templates/django_countdown/blocked_base.html:65
+msgid "The server is restarting — please wait…"
+msgstr "Serwer uruchamia się ponownie — proszę czekać…"
+
+#: templates/django_countdown/blocked_base.html:66
+msgid "The system is available again — taking you there…"
+msgstr "System znowu działa — przenoszę Cię…"
 
 #: templates/django_countdown/countdown_banner.html:15
 msgid "Scheduled maintenance is planned. The system will stop responding in:"
@@ -260,3 +258,23 @@ msgstr "Konserwacja zakończona — odśwież stronę"
 #: templates/django_countdown/countdown_banner.html:76
 msgid "Ends in:"
 msgstr "Koniec za:"
+
+#: utils.py:23
+#, python-format
+msgid "%(n)d days"
+msgstr "%(n)d dni"
+
+#: utils.py:25
+#, python-format
+msgid "%(n)d h"
+msgstr "%(n)d godz"
+
+#: utils.py:27
+#, python-format
+msgid "%(n)d min"
+msgstr "%(n)d min"
+
+#: utils.py:29
+#, python-format
+msgid "%(n)d sec"
+msgstr "%(n)d sek"

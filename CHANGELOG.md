@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- The maintenance page now waits for the site to come back on its own. It
+  polls a small status endpoint in the background and, the moment the site is
+  unblocked, sends the visitor to the page they originally asked for. A
+  deployment window is three states, not one — the old server still serving,
+  nothing serving while the container is replaced, the new server up — and
+  the page now tells them apart and says which one it is looking at.
+- `DJANGO_COUNTDOWN_STATUS_PATH` (default `/__countdown_status__/`) — the
+  path where `CountdownBlockingMiddleware` answers that poll. It is matched
+  before anything else in `process_request`, so it needs no `URLconf` entry
+  and answers even while the rest of the site is blocked. The response is
+  always HTTP 200, with the state in the body behind a
+  `"service": "django-countdown"` marker: a reverse proxy with no upstream
+  answers 5xx on its own, so a status endpoint using those codes could not be
+  told apart from the proxy speaking for it.
+- `DJANGO_COUNTDOWN_POLL_INTERVAL` (default `10` seconds) — how often the
+  page checks, scheduled with ±20 % of jitter so the end of a window does not
+  wake every waiting tab into a stampede against a server that has just
+  started. `0` turns the polling off.
+- `blocked_status_line` and `blocked_status_class` template blocks for the
+  new status line, and `countdown_status_path` / `countdown_poll_interval` /
+  `countdown_return_url` in the blocked-page context.
+
+### Changed
+- The maintenance page no longer reloads itself blindly — neither three
+  seconds after the timer expires nor every 30 seconds during an indefinite
+  window. Both reloads assumed the site would be back by the time they fired;
+  when it was not, they dropped the visitor on the proxy's error page, where
+  no script was left to try again and the only way back was a manual refresh.
+  The timer now only reports, and navigation happens solely on a confirmed
+  answer from the server.
+- When the planned end passes and the site is still down, the timer's label
+  switches from "Estimated end of maintenance in:" to "Planned end exceeded
+  by:" and counts the overrun, instead of announcing "Maintenance finished!"
+  for something that plainly has not finished.
+- Each poll feeds the server's current `maintenance_until` back into the
+  timer, so extending a running window with `extend_countdown` corrects pages
+  that are already open, without a reload.
+- The blocking decision moved into `get_blocking_countdown()`, shared by the
+  middleware and the status endpoint. The page a browser is shown and the
+  answer it polls for now come from one function and cannot disagree.
+
 ## [0.3.1] — 2026-08-07
 
 A metadata-only release: no source changes, just the declared support for

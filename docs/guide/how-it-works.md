@@ -34,7 +34,9 @@ from opposite ends of the request:
 
 ```mermaid
 flowchart TD
-    R([Request]) --> M{"Path starts with<br/>/admin/, /static/, /media/?"}
+    R([Request]) --> Q{"Path is the<br/>status endpoint?"}
+    Q -- yes --> J([JSON: blocked true/false<br/>HTTP 200, always])
+    Q -- no --> M{"Path starts with<br/>/admin/, /static/, /media/?"}
     M -- yes --> PASS([Pass through])
     M -- no --> S{"Current Site<br/>resolvable?"}
     S -- no --> LOG[Log exception] --> PASS
@@ -53,6 +55,10 @@ flowchart TD
 request never reaches your view, your ORM queries or your templates.
 `countdown_context` runs the same checks to decide which banner — if any —
 your own templates should render.
+
+The two outcomes on the right come from the same function,
+`get_blocking_countdown()`. The status endpoint is not a second opinion about
+whether the site is up — it is the same verdict, in a form a script can read.
 
 ## Who sees what
 
@@ -108,8 +114,11 @@ Three URL prefixes are never blocked, no matter the state:
 | `/static/` | So the maintenance page can load its own stylesheet |
 | `/media/` | So user-uploaded assets referenced by the page still resolve |
 
-These are hardcoded in `CountdownBlockingMiddleware.process_request` and
-cannot be configured. If your admin lives at a different path — a common
+The status endpoint — `/__countdown_status__/` unless you moved it — is open
+as well, and is handled before the three prefixes above.
+
+The prefixes are hardcoded in `CountdownBlockingMiddleware.process_request`
+and cannot be configured. If your admin lives at a different path — a common
 hardening measure — see the caveat in
 [Settings](../reference/settings.md#exempt-url-prefixes).
 
@@ -149,11 +158,15 @@ themselves along with a little JavaScript:
 - **Countdown banner** — ticks every second; when it reaches zero it shows
   "Maintenance running" and reloads the page after 3 seconds, which is the
   request that produces the 503.
-- **Maintenance page, bounded** — ticks down to `maintenance_until`, then
-  shows "Maintenance finished!" and reloads after 3 seconds.
-- **Maintenance page, indefinite** — no timer to show, so it simply reloads
-  every 30 seconds until the site comes back.
+- **Maintenance page** — the clock reports, the poll decides. The timer only
+  updates what the visitor reads; navigating back into the site happens
+  solely when the status endpoint has confirmed there is a site to navigate
+  to. See [Waiting for the site to come
+  back](blocked-page.md#waiting-for-the-site-to-come-back).
 
-All timers are computed from ISO-8601 timestamps rendered into the page and
-compared against the browser clock, so a visitor with a badly skewed clock
-sees a skewed timer. The actual blocking decision is always made server-side.
+The banner's timer is computed from an ISO-8601 timestamp rendered into the
+page and compared against the browser clock, so a visitor with a badly skewed
+clock sees a skewed banner. The maintenance page has the same skew, but it is
+inert there: the clock never triggers anything, and every poll refreshes the
+end time from the server. The actual blocking decision is always made
+server-side.

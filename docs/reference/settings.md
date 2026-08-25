@@ -1,6 +1,6 @@
 # Settings
 
-The package needs no project settings to function. Exactly one is available.
+The package needs no project settings to function. Three are available.
 
 ## `DJANGO_COUNTDOWN_BLOCKED_TEMPLATE`
 
@@ -24,8 +24,8 @@ Shipped values:
   static files
 
 Any template name resolvable by your loaders works, including one of your
-own. It is rendered with `{"countdown": ..., "site": ...}` — see
-[Template context](context.md#blocked-page-context) — and returned with
+own. It is rendered with the countdown, the site and the polling parameters —
+see [Template context](context.md#blocked-page-context) — and returned with
 `status=503`.
 
 !!! note "Read at request time, not at import time"
@@ -37,6 +37,53 @@ own. It is rendered with `{"countdown": ..., "site": ...}` — see
     An invalid template name is not validated at startup — it raises
     `TemplateDoesNotExist` on the first blocked request, i.e. exactly when
     your site is already down. Verify the value before you rely on it.
+
+## `DJANGO_COUNTDOWN_STATUS_PATH`
+
+Path at which the middleware answers the background poll that the blocked
+page runs — see [Waiting for the site to come back](../guide/blocked-page.md#waiting-for-the-site-to-come-back).
+
+| | |
+|---|---|
+| **Type** | `str` — an absolute path, matched exactly |
+| **Default** | `"/__countdown_status__/"` |
+| **Read** | On every request, via `getattr(settings, ...)` |
+
+```python title="settings.py"
+DJANGO_COUNTDOWN_STATUS_PATH = "/_internal/countdown-status/"
+```
+
+The middleware compares `request.path` to this value **before** anything
+else, so the endpoint needs no entry in your `URLconf` and answers even while
+the rest of the site is blocked. Change it only if the default collides with
+a URL of your own; the leading and trailing slashes are part of the match.
+
+Whatever you set here is exempt from blocking, so treat it as a public
+endpoint. It discloses exactly two facts: whether the site is currently
+blocked, and when the maintenance window is scheduled to end — the same two
+facts the maintenance page shows to anyone who visits.
+
+## `DJANGO_COUNTDOWN_POLL_INTERVAL`
+
+Seconds the blocked page waits between those background checks.
+
+| | |
+|---|---|
+| **Type** | `int` — seconds |
+| **Default** | `10` |
+| **Read** | On every blocked request, via `getattr(settings, ...)` |
+
+```python title="settings.py"
+DJANGO_COUNTDOWN_POLL_INTERVAL = 30
+```
+
+Each check is scheduled at the interval ±20 % of jitter. The jitter is not
+cosmetic: when a window ends, every waiting tab wakes up at once against a
+server that has just started, and spreading those requests is the difference
+between a warm-up and a stampede.
+
+`0` disables the polling entirely — no status line, no `fetch`, and the
+page then has no way to notice that the site is back.
 
 ## Django settings that matter
 
@@ -61,6 +108,10 @@ Three prefixes are never blocked:
 "/static/"   # so the maintenance page can style itself
 "/media/"    # so referenced uploads still resolve
 ```
+
+The status path above is exempt too, but it is not one of these: it is
+matched exactly rather than as a prefix, it is configurable, and it is
+handled before them.
 
 !!! warning "Hardcoded, not configurable"
 
@@ -95,7 +146,9 @@ Three prefixes are never blocked:
             return super().process_request(request)
     ```
 
-    Register your subclass in `MIDDLEWARE` instead of the original.
+    Register your subclass in `MIDDLEWARE` instead of the original. Calling
+    `super()` keeps the status endpoint working; returning early for a prefix
+    that happens to contain it would take it out.
 
 ## Logging
 

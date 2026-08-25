@@ -53,7 +53,14 @@ def preview_blocked(request, variant):
     return render(
         request,
         template_name,
-        {"countdown": fake, "site": get_current_site(request)},
+        {
+            "countdown": fake,
+            "site": get_current_site(request),
+            # Previews are static shots of the page. The real thing polls the
+            # status endpoint and navigates away as soon as the site is back --
+            # here that would bounce you off the preview after a few seconds.
+            "countdown_poll_interval": 0,
+        },
     )
 
 
@@ -77,7 +84,14 @@ def preview_blocked_indefinite(request, variant):
     return render(
         request,
         template_name,
-        {"countdown": fake, "site": get_current_site(request)},
+        {
+            "countdown": fake,
+            "site": get_current_site(request),
+            # Previews are static shots of the page. The real thing polls the
+            # status endpoint and navigates away as soon as the site is back --
+            # here that would bounce you off the preview after a few seconds.
+            "countdown_poll_interval": 0,
+        },
     )
 
 

@@ -59,6 +59,13 @@ TEMPLATES = [
 # DJANGO_COUNTDOWN_BLOCKED_TEMPLATE = "django_countdown/blocked_bootstrap.html"
 # DJANGO_COUNTDOWN_BLOCKED_TEMPLATE = "django_countdown/blocked_foundation.html"
 
+# The blocked page polls this path in the background to learn when the site is
+# back. Change it only if it collides with a URL of your own.
+# DJANGO_COUNTDOWN_STATUS_PATH = "/__countdown_status__/"
+
+# Seconds between those background checks. 0 turns the polling off.
+# DJANGO_COUNTDOWN_POLL_INTERVAL = 10
+
 # i18n
 LANGUAGE_CODE = "en"
 USE_I18N = True

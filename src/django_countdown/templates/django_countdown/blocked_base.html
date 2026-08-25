@@ -29,7 +29,7 @@
 
         {% if countdown.maintenance_until %}
             <div class="{% block blocked_timer_class %}countdown-timer{% endblock %}" id="countdown-display">
-                <div class="{% block blocked_label_class %}countdown-label{% endblock %}">{% trans "Estimated end of maintenance in:" %}</div>
+                <div class="{% block blocked_label_class %}countdown-label{% endblock %}" id="countdown-label">{% trans "Estimated end of maintenance in:" %}</div>
                 <div id="countdown-value">{% trans "Loading…" %}</div>
             </div>
         {% else %}
@@ -38,6 +38,12 @@
                 <div>{% trans "The site will become available once an administrator unblocks it." %}</div>
             </div>
         {% endif %}
+
+        {% block blocked_status_line %}
+            {% if countdown_poll_interval %}
+                <div class="{% block blocked_status_class %}maintenance-status{% endblock %}" id="countdown-status" role="status" aria-live="polite"></div>
+            {% endif %}
+        {% endblock %}
 
         <div class="{% block blocked_footer_class %}maintenance-footer{% endblock %}">
             <p>{% trans "We're sorry for the inconvenience. We're rolling out an important update. Thank you for your patience." %}</p>
@@ -52,49 +58,155 @@
         hours: "{% trans 'h' %}",
         minutes: "{% trans 'min' %}",
         seconds: "{% trans 'sec' %}",
-        maintenanceFinished: "{% trans 'Maintenance finished!' %}"
+        remainingLabel: "{% trans 'Estimated end of maintenance in:' %}",
+        overdueLabel: "{% trans 'Planned end exceeded by:' %}",
+        checking: "{% trans 'Checking whether the server is back…' %}",
+        stillBlocked: "{% trans 'Maintenance is running longer than planned — still waiting for the server.' %}",
+        unreachable: "{% trans 'The server is restarting — please wait…' %}",
+        ready: "{% trans 'The system is available again — taking you there…' %}"
     };
 
-    {% if countdown.maintenance_until %}
+    /* The clock only reports; the poller decides.
+       An in-browser countdown knows the plan, not the reality: it keeps
+       ticking while the container is still starting up. Navigating on its
+       word alone would drop the user on the proxy's error page, where no
+       script is left to try again. */
     (function () {
-        var maintenanceUntil = new Date("{{ countdown.maintenance_until.isoformat }}").getTime();
-        var countdownElement = document.getElementById('countdown-value');
-        var hasRefreshed = false;
-        var countdownInterval = null;
+        var STATE_TICKING = 'ticking';
+        var STATE_OVERDUE = 'overdue';
+        var timerState = STATE_TICKING;
+        /* Indefinite maintenance has no clock to move. */
+        var retargetClock = function () {};
 
-        function updateCountdown() {
-            var now = new Date().getTime();
-            var distance = maintenanceUntil - now;
-
-            if (distance < 0 && !hasRefreshed) {
-                countdownElement.textContent = labels.maintenanceFinished;
-                hasRefreshed = true;
-                if (countdownInterval) clearInterval(countdownInterval);
-                setTimeout(function () { window.location.reload(); }, 3000);
-                return;
-            }
-
-            var days = Math.floor(distance / (1000 * 60 * 60 * 24));
-            var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        function formatDuration(milliseconds) {
+            var seconds = Math.floor(milliseconds / 1000);
+            var days = Math.floor(seconds / 86400);
+            var hours = Math.floor((seconds % 86400) / 3600);
+            var minutes = Math.floor((seconds % 3600) / 60);
 
             var parts = [];
             if (days > 0) parts.push(days + " " + labels.days);
             if (hours > 0) parts.push(hours + " " + labels.hours);
             if (minutes > 0) parts.push(minutes + " " + labels.minutes);
-            if (seconds >= 0) parts.push(seconds + " " + labels.seconds);
+            parts.push((seconds % 60) + " " + labels.seconds);
 
-            countdownElement.textContent = parts.join(" ");
+            return parts.join(" ");
         }
 
-        updateCountdown();
-        countdownInterval = setInterval(updateCountdown, 1000);
+        {% if countdown.maintenance_until %}
+        (function startClock() {
+            var maintenanceUntil = new Date("{{ countdown.maintenance_until.isoformat }}").getTime();
+            var labelElement = document.getElementById('countdown-label');
+            var valueElement = document.getElementById('countdown-value');
+
+            function tick() {
+                var distance = maintenanceUntil - new Date().getTime();
+
+                if (distance < 0) {
+                    timerState = STATE_OVERDUE;
+                    labelElement.textContent = labels.overdueLabel;
+                    valueElement.textContent = formatDuration(-distance);
+                    return;
+                }
+
+                timerState = STATE_TICKING;
+                labelElement.textContent = labels.remainingLabel;
+                valueElement.textContent = formatDuration(distance);
+            }
+
+            /* The end time baked into this page is a snapshot. An admin who
+               extends the maintenance while people wait moves it, and every
+               poll carries the current one back. */
+            retargetClock = function (isoString) {
+                if (!isoString) return;
+                var moved = new Date(isoString).getTime();
+                if (isNaN(moved) || moved === maintenanceUntil) return;
+                maintenanceUntil = moved;
+                tick();
+            };
+
+            tick();
+            setInterval(tick, 1000);
+        })();
+        {% endif %}
+
+        {% if countdown_poll_interval %}
+        (function startPoller() {
+            var pollInterval = {{ countdown_poll_interval }} * 1000;
+            var statusPath = "{{ countdown_status_path|escapejs }}";
+            var returnUrl = "{{ countdown_return_url|escapejs }}";
+            var statusElement = document.getElementById('countdown-status');
+            var pending = null;
+            var leaving = false;
+
+            /* Ancient browsers get the page without the poll rather than a
+               script error - the countdown above still works. */
+            if (typeof window.fetch !== 'function') return;
+
+            function show(message) {
+                if (statusElement) statusElement.textContent = message;
+            }
+
+            function scheduleNext() {
+                if (leaving || document.hidden) return;
+                /* +/-20 % of jitter: when maintenance ends, every waiting tab
+                   wakes up at once and hits a server that has just started. */
+                var delay = pollInterval * (0.8 + Math.random() * 0.4);
+                pending = setTimeout(poll, delay);
+            }
+
+            function leaveForRequestedPage() {
+                leaving = true;
+                clearTimeout(pending);
+                show(labels.ready);
+                /* replace(), not reload(): the blocked page stays out of the
+                   history and a page rendered for a POST is not resubmitted. */
+                setTimeout(function () { window.location.replace(returnUrl); }, 1500);
+            }
+
+            function poll() {
+                fetch(statusPath, {
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    headers: {'Accept': 'application/json'}
+                })
+                    .then(function (response) {
+                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        return response.json();
+                    })
+                    .then(function (status) {
+                        /* Without the marker this is someone else answering -
+                           a proxy error page, a captive portal, a cached blob. */
+                        if (status.service !== "django-countdown") {
+                            throw new Error('not a django-countdown status');
+                        }
+                        if (!status.blocked) {
+                            leaveForRequestedPage();
+                            return;
+                        }
+                        retargetClock(status.maintenance_until);
+                        show(timerState === STATE_OVERDUE ? labels.stillBlocked : labels.checking);
+                        scheduleNext();
+                    })
+                    .catch(function () {
+                        /* Refused, timed out, 502 from the proxy: the
+                           application is down mid-deploy. Keep waiting. */
+                        show(labels.unreachable);
+                        scheduleNext();
+                    });
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                if (leaving) return;
+                clearTimeout(pending);
+                if (!document.hidden) poll();
+            });
+
+            show(labels.checking);
+            poll();
+        })();
+        {% endif %}
     })();
-    {% else %}
-    // Indefinite maintenance — poll every 30 s in case admin unblocks
-    setTimeout(function () { window.location.reload(); }, 30000);
-    {% endif %}
 </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 # Template blocks
 
 `django_countdown/blocked_base.html` is the extension point for the
-maintenance page. It defines fifteen blocks — some structural, most of them
+maintenance page. It defines seventeen blocks — some structural, most of them
 just the CSS classes on an element, so you can retarget the page at a
 different framework without rewriting the markup.
 
@@ -22,6 +22,7 @@ different framework without rewriting the markup.
 | `blocked_body` | The whole page | Replaces the entire content of `<body>`. The timer script sits *outside* it and still runs. |
 | `blocked_header_icon_left` | `<div class="maintenance-icon icon-key"><span class="fi-wrench"></span></div>` | Icon left of the headline |
 | `blocked_header_icon_right` | `<div class="maintenance-icon icon-cog"><span class="fi-widget"></span></div>` | Icon right of the headline |
+| `blocked_status_line` | `<div class="maintenance-status" id="countdown-status">` | The line the background poll writes its findings into. Rendered only when polling is on. Override to move or restyle it; empty it out to keep the poll and drop the visible feedback. |
 
 The default icons use Foundation icon classes (`fi-*`), which is why the
 plain variant shows empty boxes unless its own CSS styles them. Override both
@@ -45,6 +46,7 @@ its content and its `id` stay put.
 | `blocked_label_class` | `countdown-label` | "Estimated end of maintenance in:" |
 | `blocked_timer_class_indef` | `countdown-timer countdown-timer--indefinite` | Timer wrapper, indefinite window |
 | `blocked_label_class_indef` | `countdown-label` | "Maintenance has no scheduled end." |
+| `blocked_status_class` | `maintenance-status` | Status line written by the background poll |
 | `blocked_footer_class` | `maintenance-footer` | Footer with the apology and `site.name` |
 
 The `_indef` pair exists because the two states need different styling —
@@ -53,17 +55,19 @@ usually a calmer treatment for the case where there is no number to show.
 ## Element IDs the script depends on
 
 The countdown script is outside every block and cannot be overridden without
-replacing the whole template. It looks for two IDs, present only when
-`countdown.maintenance_until` is set:
+replacing the whole template. It looks for four IDs:
 
-| ID | Element | Written by the script |
-|---|---|---|
-| `countdown-display` | Timer wrapper | — (marker only) |
-| `countdown-value` | Inner `<div>` | The formatted remaining time, then "Maintenance finished!" |
+| ID | Element | Written by the script | Present when |
+|---|---|---|---|
+| `countdown-display` | Timer wrapper | — (marker only) | `maintenance_until` is set |
+| `countdown-label` | Label above the timer | Swaps between "Estimated end of maintenance in:" and "Planned end exceeded by:" | `maintenance_until` is set |
+| `countdown-value` | Inner `<div>` | The formatted time remaining, or the overrun once the planned end passes | `maintenance_until` is set |
+| `countdown-status` | Status line | What the background poll last learned about the server | polling is on |
 
-If you override `blocked_body`, keep `id="countdown-value"` on some element
-or the timer silently does nothing — `document.getElementById` returns
-`null` and the first tick throws.
+If you override `blocked_body`, keep `id="countdown-value"` and
+`id="countdown-label"` on some element or the timer silently does nothing —
+`document.getElementById` returns `null` and the first tick throws. The
+status line is looked up defensively and may be missing.
 
 ## Structure at a glance
 
@@ -80,13 +84,16 @@ or the timer silently does nothing — `document.getElementById` returns
 
     <!-- one of the two, depending on maintenance_until -->
     <div class="{{ blocked_timer_class }}" id="countdown-display">
-      <div class="{{ blocked_label_class }}">Estimated end of maintenance in:</div>
+      <div class="{{ blocked_label_class }}" id="countdown-label">Estimated end of maintenance in:</div>
       <div id="countdown-value">…</div>
     </div>
     <div class="{{ blocked_timer_class_indef }}">
       <div class="{{ blocked_label_class_indef }}">Maintenance has no scheduled end.</div>
       <div>The site will become available once an administrator unblocks it.</div>
     </div>
+
+    <!-- only when polling is on -->
+    <div class="{{ blocked_status_class }}" id="countdown-status"></div>
 
     <div class="{{ blocked_footer_class }}">…{{ site.name }}</div>
   </div>

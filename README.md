@@ -32,6 +32,11 @@ while leaving operators unblocked so they can actually finish the work.
 - **Maintenance window** — optional `maintenance_until` lets you set a target
   end-time; a second banner appears for superusers and the blocked page shows
   a live countdown to recovery.
+- **Self-healing wait** — the blocked page polls a status endpoint in the
+  background and sends visitors back to the page they wanted the moment the
+  site returns. It tells "still down for maintenance" apart from "nothing is
+  answering while the container restarts", so a timer that runs out mid-deploy
+  no longer strands anyone on the proxy's error page.
 - **Per-Site configuration** — uses Django's `sites` framework, so each
   domain in a multi-tenant setup has its own independent countdown.
 - **A command per verb** — `start_countdown` schedules a window,
