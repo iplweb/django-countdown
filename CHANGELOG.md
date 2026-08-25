@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DJANGO_COUNTDOWN_POLL_INTERVAL` (default `10` seconds) — how often the
   page checks, scheduled with ±20 % of jitter so the end of a window does not
   wake every waiting tab into a stampede against a server that has just
-  started. `0` turns the polling off.
+  started. Only one check is ever outstanding, so switching away from the tab
+  and back while a check is in flight cannot leave two polling loops running
+  in parallel. `0` turns the polling off.
 - The destination of that return trip is validated against the site's own
   origin, on the server and again in the browser before navigating. A path
   beginning with `//` — or with a backslash, which browsers read as a slash —

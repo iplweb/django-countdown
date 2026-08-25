@@ -137,6 +137,7 @@
             var returnUrl = "{{ countdown_return_url|escapejs }}";
             var statusElement = document.getElementById('countdown-status');
             var pending = null;
+            var inFlight = false;
             var leaving = false;
 
             /* Ancient browsers get the page without the poll rather than a
@@ -178,6 +179,15 @@
             }
 
             function poll() {
+                /* One request outstanding at a time. A tab brought back to the
+                   front mid-flight would otherwise start a second chain, and
+                   each chain schedules its own successor — the polling rate
+                   doubles per switch, precisely while the server is slow
+                   enough for the switch to land mid-flight. The in-flight
+                   request reschedules for everyone. */
+                if (inFlight) return;
+                inFlight = true;
+
                 fetch(statusPath, {
                     cache: 'no-store',
                     credentials: 'same-origin',
@@ -188,6 +198,7 @@
                         return response.json();
                     })
                     .then(function (status) {
+                        inFlight = false;
                         /* Without the marker this is someone else answering -
                            a proxy error page, a captive portal, a cached blob. */
                         if (status.service !== "django-countdown") {
@@ -202,6 +213,7 @@
                         scheduleNext();
                     })
                     .catch(function () {
+                        inFlight = false;
                         /* Refused, timed out, 502 from the proxy: the
                            application is down mid-deploy. Keep waiting. */
                         show(labels.unreachable);

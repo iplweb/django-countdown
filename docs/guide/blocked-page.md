@@ -115,7 +115,10 @@ correct themselves within one interval, without a reload.
 Two smaller details, both deliberate:
 
 - Polling **pauses while the tab is hidden** and fires immediately when the
-  visitor comes back, so a forgotten tab costs nothing.
+  visitor comes back, so a forgotten tab costs nothing. Only one check is ever
+  outstanding: a tab brought back while a check is still on its way waits for
+  that one rather than starting a second, which would otherwise leave two
+  polling loops running in parallel — and then four, and then eight.
 - The return trip uses `location.replace()`, so the maintenance page does not
   land in the visitor's history, and a page that was rendered in response to
   a `POST` is not resubmitted.

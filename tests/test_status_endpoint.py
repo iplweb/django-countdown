@@ -311,3 +311,20 @@ def test_blocked_page_guards_the_return_url_in_the_browser_too():
     content = render_blocked_page()
 
     assert "window.location.origin" in content
+
+
+@pytest.mark.django_db
+def test_blocked_page_polls_one_request_at_a_time():
+    """Karta wracająca na wierzch w trakcie odpytania nie mnoży pętli.
+
+    Bez tej blokady każde przełączenie karty startowało drugi łańcuch
+    odpytywania, a każdy łańcuch planuje własnego następcę — tempo rosło
+    dwukrotnie na przełączenie, akurat wtedy, gdy serwer jest na tyle wolny,
+    że przełączenie trafia w wiszący fetch.
+
+    Test pilnuje obecności blokady; samo zachowanie potwierdzone w przeglądarce
+    (trzy cykle ukryj/pokaż przy odpowiedziach opóźnionych o 2,5 s).
+    """
+    content = render_blocked_page()
+
+    assert "if (inFlight) return;" in content
